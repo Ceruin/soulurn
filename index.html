@@ -18,6 +18,7 @@
     --basic: #6a655c;
     --weapon: #b9731f;
     --spirit: #7c58a8;
+    --vitality: #5b8f2e;
     --shop-paper: #b9a98c;
     --shop-trim: #4a4337;
   }
@@ -96,7 +97,8 @@
 
   #toolbar {
     position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%);
-    display: flex; align-items: flex-start; gap: 8px;
+    display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 8px;
+    width: max-content; max-width: min(660px, 96vw);
   }
   .tool {
     width: 56px; padding: 0; cursor: pointer; background: none; border: 0; color: var(--paper);
@@ -110,14 +112,7 @@
   .tool .icon { width: 34px; height: 34px; object-fit: contain; }
   .tool:hover .disc { border-color: var(--paper); }
   .tool.selected .disc { border: 3px solid var(--paper); box-shadow: 0 0 12px rgba(239, 230, 210, 0.7); }
-  .tool.locked .disc { opacity: 0.45; }
-  .tool .cost { height: 12px; font-size: 10px; color: var(--soul); text-shadow: 0 1px 2px #000; }
-
-  #hint {
-    position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%);
-    font-size: 14px; text-shadow: 0 1px 3px #000, 0 0 6px #000;
-    pointer-events: none; width: max-content; max-width: 94vw; text-align: center;
-  }
+  .tool.locked { display: none; }
 
   #shop {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -54%); z-index: 6;
@@ -139,6 +134,8 @@
   .row.basic { background: var(--basic); }
   .row.weapon { background: var(--weapon); }
   .row.spirit { background: var(--spirit); }
+  .row.vitality { background: var(--vitality); }
+  .shopHead { padding: 6px 4px 2px; font-size: 12px; letter-spacing: 1px; }
   .row:hover { filter: brightness(1.15); }
   .row.poor { opacity: 0.55; }
   .row .icon { width: 38px; height: 38px; padding: 3px; object-fit: contain; background: rgba(0, 0, 0, 0.35); border-radius: 3px; }
@@ -148,6 +145,13 @@
   .row .state { font-size: 11px; letter-spacing: 1px; }
   #shop footer { padding: 8px 16px; font-size: 12px; background: #a39479; }
   .nope { animation: nope 0.3s linear; }
+
+  #tip {
+    position: fixed; left: 0; top: 0; z-index: 20; display: none; max-width: 250px;
+    background: rgba(18, 17, 15, 0.96); border: 1px solid #6f6453; border-left: 3px solid var(--soul);
+    padding: 7px 10px; font-size: 13px; font-weight: 400; line-height: 1.35; pointer-events: none;
+  }
+  #tip b { display: block; color: var(--soul); font-weight: 700; }
 
   #bubble {
     position: fixed; left: 0; top: 0;
@@ -183,14 +187,14 @@
   @media (max-width: 700px) {
     #menu { left: 8px; right: 8px; top: 6px; overflow-x: auto; }
     #menu button, #menu label { flex: 0 0 auto; white-space: nowrap; }
-    #toolbar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px 6px; width: min(340px, 96vw); justify-items: center; }
+    #toolbar { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; width: 96vw; max-width: 96vw; }
+    .tool { flex: 0 0 auto; }
     .tool { width: 50px; }
     .tool .disc { width: 46px; height: 46px; }
     .tool .icon { width: 28px; height: 28px; }
     #score { font-size: 24px; }
     #integrity { width: 150px; height: 26px; }
     #leakLabel { line-height: 22px; font-size: 14px; }
-    #hint { font-size: 12px; }
   }
 
   @keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
@@ -211,22 +215,22 @@
 </div>
 
 <div id="hud">
-  <div id="integrity" title="Urn integrity. At zero he shatters, drops a big Soul Bag and a new urn arrives.">
+  <div id="integrity" data-tip="Integrity">
     <div id="leakFill"></div><span id="leakLabel">100 / 100</span>
   </div>
   <div id="soulRow">
-    <div id="level" title="Urns shattered">0</div>
+    <div id="level" data-tip="Urns shattered">0</div>
     <div>
       <div id="score"><img src="assets/img/Souls_icon.png" alt=""><span id="scoreValue">0</span><small>SOULS</small></div>
-      <div id="haunted" title="Souls you let float away. Half are salvaged, and enough of them drop back in as a Soul Bag."></div>
+      <div id="haunted" data-tip="Haunted souls"></div>
     </div>
   </div>
-  <div id="buffs" title="Permanent buffs"></div>
+  <div id="buffs"></div>
   <button id="shopButton" type="button"><span class="key">B</span> SHOP</button>
 </div>
 
 <div id="bubble"></div>
-<div id="hint"></div>
+<div id="tip"></div>
 <div id="toolbar"></div>
 
 <div id="shop">
@@ -237,11 +241,7 @@
 
 <div id="start">
   <h1>INTERACTIVE URN</h1>
-  <p>Drag him around. Throw him. Crack him open with Deadlock weapons.</p>
-  <p>Sweep the cursor over loose souls to bank them, then buy the next weapon.</p>
-  <p>Smash golden statues for permanent buffs. Heavy melee a Soul Bag to claim the souls you missed.</p>
-  <p>Right-click drag grabs him no matter which weapon is out.</p>
-  <p class="go">Click to begin your shift</p>
+  <p class="go">Click to begin</p>
 </div>
 
 <script src="assets/lines.js"></script>
@@ -274,18 +274,48 @@
   var LEAK_DECAY = 2;
   var LEAK_SOULS_PER_SEC = 0.35;
   var BURST_SOULS_PER_DAMAGE = 0.6;
-  var BREAK_AT = 260;
-  var STRESS_DECAY = 1;
-  var FRACTURE_START = 0.35;
+  var BREAK_AT = 700;
+  var STRESS_DECAY = 4;
+  var FRACTURE_START = 0.2;
   var FRACTURE_COLS = 3;
   var FRACTURE_ROWS = 5;
-  var FRACTURE_STAGES = 5;
+  var CRACK_COUNT = 12;
   var BREAK_SOULS = 40;
   var BREAK_BAG_SOULS = 400;
   var RESPAWN_MS = 3500;
   var SHARD_LIFE_MS = 2600;
   var DESCENT_SPEED = 220;
-  var PAIN_GROUPS = ['idol_holder_gets_stunned', 'idol_holder_takes_big_damage', 'mix_hurt', 'mix_hurt'];
+  var ANGER_PER_DAMAGE = 1.2;
+  var ANGER_DECAY = 3;
+  var BORED_AFTER_MS = 20000;
+  var SCARED_BELOW = 0.3;
+  // His mood is never shown. It only decides which of his lines he reaches for.
+  var MOOD_LINES = {
+    content: { idle: ['idol_waiting_on_bridge'], hurt: ['mix_hurt_mild', 'idol_holder_gets_stunned'], pickup: ['idol_picked_up_on_bridge'] },
+    bored: { idle: ['idol_waiting_in_street', 'koth_warning'], hurt: ['mix_hurt_mild', 'idol_holder_gets_stunned'], pickup: ['idol_picked_up_on_street'] },
+    annoyed: { idle: ['koth_warning', 'idol_waiting_in_street'], hurt: ['mix_hurt_angry', 'mix_hurt_mild', 'idol_holder_gets_stunned'], pickup: ['idol_picked_up_on_street'] },
+    furious: { idle: ['koth_give_up', 'koth_warning'], hurt: ['mix_hurt_angry', 'idol_holder_takes_big_damage'], pickup: ['idol_dropped'] },
+    scared: { idle: ['mix_hurt_scared', 'idol_holder_takes_big_damage'], hurt: ['mix_hurt_scared', 'idol_holder_takes_big_damage'], pickup: ['mix_hurt_scared'] }
+  };
+
+  var SLAM_SPEED = 2400;
+  var SLAM_FLOOR_DAMAGE = 8;
+  var CHARGE_SPEED = 2600;
+  var CHARGE_DAMAGE = 5;
+  var LEAP_SPEED = 3000;
+  var KNOCKDOWN_DELAY_MS = 2000;
+  var KNOCKDOWN_DAMAGE = 20;
+  var SIPHON_REACH = 320;
+  var SIPHON_DAMAGE_PER_SEC = 4;
+  var SIPHON_SOUL_MS = 120;
+  var MAX_BALLS = 2;
+  var BALL_SPEED = 260;
+  var BALL_REACH = 170;
+  var BALL_ZAP_MS = 150;
+  var BALL_DAMAGE = 2;
+  var GOOSE_SOULS_PER_SEC = 4;
+  var GOOSE_PAYOUT = 20;
+  var GOOSE_BUFF_MS = 60000;
   var MAX_SOULS = 180;
   var SOUL_LIFE_MS = 7000;
   var SOUL_COLLECT_RADIUS = 46;
@@ -294,8 +324,8 @@
   var LIGHT_MELEE = { damage: 6, force: 950 };
   var HEAVY_MELEE = { damage: 14, force: 2000 };
   var HEAVY_CHARGE_MS = 400;
-  var SMG = { intervalMs: 70, pellets: 1, spread: 0.035, damage: 0.8, force: 60 };
-  var SHOTGUN = { intervalMs: 450, pellets: 8, spread: 0.13, damage: 1.6, force: 170 };
+  var SMG = { intervalMs: 70, pellets: 1, spread: 12, damage: 0.8, force: 60 };
+  var SHOTGUN = { intervalMs: 450, pellets: 8, spread: 50, damage: 1.6, force: 170 };
   var BOMB_FUSE_MS = 1600;
   var BOMB_RADIUS = 440;
   var BOMB_DAMAGE = 30;
@@ -317,7 +347,24 @@
   var MAX_TURRETS = 3;
   var TURRET_INTERVAL_MS = 600;
   var TURRET_DAMAGE = 1.5;
-  var MAX_PARTICLES = 300;
+  var MAX_PARTICLES = 500;
+
+  var GLOW_COLORS = {
+    white: '255, 250, 235', yellow: '255, 214, 110', orange: '255, 140, 40', red: '214, 60, 24',
+    teal: '110, 230, 184', blue: '120, 200, 255', gold: '232, 196, 106', goo: '150, 220, 110', smoke: '40, 38, 36'
+  };
+  // gravity and drag drive the motion; a particle is drawn at size * (scale + grow * age).
+  var PARTICLE_KINDS = {
+    fire: { gravity: -300, drag: 1.5, additive: true, scale: 1.6, grow: 1, alpha: 0.9 },
+    ember: { gravity: -120, drag: 0.5, additive: true, glow: 'orange', scale: 0.6, grow: 0, alpha: 1 },
+    spark: { gravity: 900, drag: 0.5, additive: true },
+    smoke: { gravity: -90, drag: 1.2, additive: false, glow: 'smoke', scale: 2, grow: 2.5, alpha: 0.5 },
+    goo: { gravity: 1600, drag: 0.2, additive: false, glow: 'goo', scale: 0.8, grow: -0.4, alpha: 0.95 },
+    gold: { gravity: 900, drag: 0.3, additive: true, glow: 'gold', scale: 0.5, grow: 0, alpha: 1 },
+    pull: { gravity: 0, drag: 0, additive: true, glow: 'blue', scale: 1, grow: -0.6, alpha: 1 },
+    soul: { gravity: -60, drag: 2, additive: true, glow: 'teal', scale: 0.5, grow: 0, alpha: 1 }
+  };
+  var EFFECT_LIFE_MS = { flash: 160, muzzle: 70, impact: 220 };
 
   var IDLE_TALK_MS = 7000;
   var HELD_TALK_MS = 8000;
@@ -327,7 +374,7 @@
   var BAG_MIN_SOULS = 120;
   var BAG_SALVAGE = 0.5;
   var BAG_LIFE_MS = 180000;
-  var BAG_RADIUS = 26;
+  var BAG_RADIUS = 30;
   var STATUE_FIRST_MS = 15000;
   var STATUE_INTERVAL_MS = 35000;
   var MAX_STATUES = 2;
@@ -385,13 +432,33 @@
     { id: 'sticky', kind: 'spirit', name: 'Sticky Bomb', cost: 800, icon: 'Sticky_Bomb.png', hint: 'Click him to stick a bomb on, or drop one anywhere.' },
     { id: 'fire', kind: 'spirit', name: 'Afterburn', cost: 1200, icon: 'Afterburn.png', hint: 'Hold near him to set him on fire.' },
     { id: 'turret', kind: 'weapon', name: 'Mini Turret', cost: 2000, icon: 'Mini_Turret.png', hint: 'Click the floor to place a turret (max 3). Click a turret to remove it.' },
-    { id: 'vortex', kind: 'spirit', name: 'Singularity', cost: 2500, icon: 'Singularity.png', hint: 'Hold to pull him and every loose soul into the cursor.' }
+    { id: 'vortex', kind: 'spirit', name: 'Singularity', cost: 2500, icon: 'Singularity.png', hint: 'Hold to pull him and every loose soul into the cursor.' },
+    { id: 'slam', kind: 'spirit', name: 'Ground Strike', cost: 900, icon: 'Ground_Strike.png', hint: 'Slams him straight down into the floor.' },
+    { id: 'charge', kind: 'spirit', name: 'Shoulder Charge', cost: 1000, icon: 'Shoulder_Charge.png', hint: 'Rams him across the room, away from the cursor.' },
+    { id: 'leap', kind: 'vitality', name: 'Majestic Leap', cost: 1100, icon: 'Majestic_Leap.png', hint: 'Launches him high into the air.' },
+    { id: 'knockdown', kind: 'weapon', name: 'Knockdown', cost: 1400, icon: 'Knockdown.png', hint: 'Marks him. Two seconds later he is knocked down hard.' },
+    { id: 'siphon', kind: 'spirit', name: 'Siphon Life', cost: 1800, icon: 'Siphon_Life.png', hint: 'Hold near him to drain souls straight into the cursor.' },
+    { id: 'ball', kind: 'spirit', name: 'Lightning Ball', cost: 2200, icon: 'Lightning_Ball.png', hint: 'Rolls a ball of lightning across the room that zaps him as it passes.' }
   ];
+
+  // Passive items. Their mods stack onto the same stats the permanent buffs use.
+  var ITEMS = [
+    { id: 'monsterRounds', kind: 'weapon', name: 'Monster Rounds', cost: 800, icon: 'Monster_Rounds.png', hint: '+30% melee and bullet damage.', mods: { weapon: 0.3 } },
+    { id: 'burstFire', kind: 'weapon', name: 'Burst Fire', cost: 1200, icon: 'Burst_Fire.png', hint: 'Guns and turrets fire 30% faster.', mods: { fireRate: 0.3 } },
+    { id: 'titanicMagazine', kind: 'weapon', name: 'Titanic Magazine', cost: 1600, icon: 'Titanic_Magazine.png', hint: 'Every hit knocks 40% more souls loose.', mods: { ammo: 0.4 } },
+    { id: 'sprintBoots', kind: 'vitality', name: 'Sprint Boots', cost: 800, icon: 'Sprint_Boots.png', hint: 'Souls and tomes are picked up from 40% further away.', mods: { moveSpeed: 0.4 } },
+    { id: 'trophyCollector', kind: 'vitality', name: 'Trophy Collector', cost: 1600, icon: 'Trophy_Collector.png', hint: 'Every soul is worth 25% more.', mods: { health: 0.25 } },
+    { id: 'goose', kind: 'vitality', name: 'Golden Goose Egg', cost: 3200, icon: 'Golden_Goose_Egg.png', hint: 'Lays 4 souls a second and a buff tome every minute.', mods: {} },
+    { id: 'extraSpirit', kind: 'spirit', name: 'Extra Spirit', cost: 800, icon: 'Extra_Spirit.png', hint: 'Abilities hit 20% harder.', mods: { spirit: 0.2 } },
+    { id: 'mysticReach', kind: 'spirit', name: 'Mystic Reach', cost: 1200, icon: 'Mystic_Reach.png', hint: 'Blasts, flames, siphon and singularity reach 25% further.', mods: { range: 0.25 } },
+    { id: 'improvedSpirit', kind: 'spirit', name: 'Improved Spirit', cost: 1600, icon: 'Improved_Spirit.png', hint: 'Abilities hit 35% harder.', mods: { spirit: 0.35 } }
+  ];
+  var SHOP_ENTRIES = TOOLS.concat(ITEMS);
 
   var canvas = document.getElementById('room');
   var ctx = canvas.getContext('2d');
   var bubble = document.getElementById('bubble');
-  var hint = document.getElementById('hint');
+  var tip = document.getElementById('tip');
   var scoreValue = document.getElementById('scoreValue');
   var leakLabel = document.getElementById('leakLabel');
   var leakFill = document.getElementById('leakFill');
@@ -412,6 +479,7 @@
   var statueImg = new Image();
   var tomeImgs = {};
   var soulSprite = document.createElement('canvas');
+  var bagSprite = document.createElement('canvas');
   var crackCanvas = document.createElement('canvas');
   var crackCtx = crackCanvas.getContext('2d');
 
@@ -441,7 +509,7 @@
   var urnDirty = true;
   var renderedStage = 0;
   var shardShapes = [];
-  var fractureLines = [];
+  var crackPaths = [];
   var shards = [];
   var bombs = [];
   var blasts = [];
@@ -449,6 +517,8 @@
   var particles = [];
   var turrets = [];
   var texts = [];
+  var effects = [];
+  var glows = {};
   var hookLine = null;
   var gooFist = null;
   var charge = null;
@@ -458,6 +528,15 @@
   var leak = 0;
   var soulDebt = 0;
   var painBank = 0;
+  var anger = 0;
+  var lastTouchedAt = 0;
+  var itemBonus = {};
+  var balls = [];
+  var knockdownAt = 0;
+  var siphoning = false;
+  var lastSiphonSoulAt = 0;
+  var gooseSouls = 0;
+  var nextGooseBuffAt = 0;
   var shake = 0;
   var burnUntil = 0;
   var stress = 0;
@@ -479,7 +558,6 @@
   var lastHeldTalkAt = 0;
   var lastSaveAt = 0;
   var saveDirty = false;
-  var idleTalks = 0;
   var lastFrame = 0;
 
   function rand(min, max) { return min + Math.random() * (max - min); }
@@ -542,7 +620,7 @@
     music.src = 'assets/music/' + TRACKS[index].file;
     music.play().catch(function () {});
     trackButton.textContent = 'Music: ' + TRACKS[index].title;
-    trackButton.title = 'Click for the next track';
+    trackButton.dataset.tip = 'Next track';
   }
 
   function playNextTrack() {
@@ -554,7 +632,7 @@
   // ---- Permanent buffs ----
 
   function getBuff(id) {
-    return 1 + buffSteps[id] * (buffs[id] || 0);
+    return (1 + buffSteps[id] * (buffs[id] || 0)) * (1 + (itemBonus[id] || 0));
   }
 
   function pickBuff() {
@@ -575,7 +653,7 @@
       var slot = document.createElement('div');
       slot.className = 'slot';
       if (count) {
-        slot.title = def.name + ' x' + count + ': ' + def.effect + ' (+' + Math.round(def.step * count * 100) + '%)';
+        slot.dataset.tip = def.name + ' x' + count + '|+' + Math.round(def.step * count * 100) + '%: ' + def.effect + '.';
         slot.innerHTML = '<img src="' + IMG_DIR + def.tome + '" alt=""><span>' + count + '</span>';
       }
       buffPanel.appendChild(slot);
@@ -645,14 +723,11 @@
 
   function breakStatue(statue) {
     statues.splice(statues.indexOf(statue), 1);
-    var now = performance.now();
-    for (var i = 0; i < 16 && particles.length < MAX_PARTICLES; i++) {
-      particles.push({
-        x: statue.x + rand(-25, 25), y: floorY - rand(20, STATUE_HEIGHT),
-        vx: rand(-260, 260), vy: rand(-520, -120), born: now, life: rand(400, 800), size: rand(4, 9), gold: true
-      });
-    }
-    if (Math.random() < STATUE_BUFF_CHANCE) spawnTome(statue.x, floorY - STATUE_HEIGHT / 2, rand(-60, 60), -420);
+    var middle = floorY - STATUE_HEIGHT / 2;
+    burstParticles('gold', statue.x, middle, 18, 420);
+    burstParticles('smoke', statue.x, middle, 6, 120);
+    addEffect('impact', statue.x, middle, 1.3);
+    if (Math.random() < STATUE_BUFF_CHANCE) spawnTome(statue.x, middle, rand(-60, 60), -420);
     else addText(statue.x, floorY - STATUE_HEIGHT, 'Empty', '#f3ead2');
   }
 
@@ -674,7 +749,7 @@
 
   function refreshHaunted() {
     hauntedLabel.textContent = bag
-      ? 'Soul Bag: ' + formatSouls(bag.value) + ' (heavy melee it)'
+      ? 'Soul Bag: ' + formatSouls(bag.value)
       : haunted + ' / ' + BAG_MIN_SOULS + ' haunted';
   }
 
@@ -715,7 +790,6 @@
     if (!heavy) {
       bag.vx += rand(-320, 320);
       bag.vy = -560;
-      addText(bag.x, bag.y - 44, 'Needs a heavy melee', '#f3ead2');
       return;
     }
     addText(bag.x, bag.y - 44, '+' + bag.value + ' SECURED', '#7dffd0');
@@ -753,10 +827,9 @@
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // The floor sits just above the ability bar and its hint line, however many rows the bar wraps to.
+    // The floor sits just above the ability bar, however many rows the bar wraps to.
     var barHeight = toolbar.offsetHeight + 16;
-    hint.style.bottom = barHeight + 'px';
-    floorY = height - barHeight - 30;
+    floorY = height - barHeight - 10;
     urn.h = clamp(height * 0.27, 120, 300);
     urn.w = urn.h * URN_ASPECT;
     urnDirty = true;
@@ -835,6 +908,38 @@
     });
   }
 
+  function getMood() {
+    if (stress / BREAK_AT > 1 - SCARED_BELOW) return 'scared';
+    if (anger > 60) return 'furious';
+    if (anger > 20) return 'annoyed';
+    if (performance.now() - lastTouchedAt > BORED_AFTER_MS) return 'bored';
+    return 'content';
+  }
+
+  function sayMood(occasion) {
+    say(pick(MOOD_LINES[getMood()][occasion]), false);
+  }
+
+  // A tooltip that follows the cursor for anything carrying data-tip ("Title|body").
+  function showTip(e) {
+    var owner = e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (!owner) {
+      tip.style.display = 'none';
+      return;
+    }
+    var parts = owner.dataset.tip.split('|');
+    var title = document.createElement('b');
+    title.textContent = parts[0];
+    tip.textContent = '';
+    tip.appendChild(title);
+    if (parts[1]) tip.appendChild(document.createTextNode(parts[1]));
+    tip.style.display = 'block';
+    var x = Math.min(e.clientX + 14, width - tip.offsetWidth - 8);
+    var y = e.clientY - tip.offsetHeight - 12;
+    if (y < 8) y = e.clientY + 18;
+    tip.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+  }
+
   function placeBubble() {
     var extents = getUrnExtents();
     var half = bubble.offsetWidth / 2;
@@ -845,8 +950,7 @@
 
   // ---- Fracture ----
 
-  // The urn image is cut along a jittered grid. The same lines glow through him as damage builds
-  // up, and they are the edges he shatters along, so the damage shows where he will come apart.
+  // The urn image is cut along a jittered grid into the shards he shatters into.
   function buildFracture() {
     var points = [];
     var across = [];
@@ -881,32 +985,56 @@
         var cy = 0;
         outline.forEach(function (p) { cx += p[0] / outline.length; cy += p[1] / outline.length; });
         shardShapes.push({ points: outline, cx: cx, cy: cy });
-        if (r > 0) fractureLines.push(across[r][c]);
-        if (c > 0) fractureLines.push(down[r][c]);
       }
     }
   }
 
-  // 0 while he is healthy, then 1..FRACTURE_STAGES as he nears breaking.
+  // How many hairline cracks show: none while he is healthy, all of them just before he breaks.
   function getDamageStage() {
     var strain = stress / BREAK_AT;
     if (strain < FRACTURE_START) return 0;
-    return Math.min(FRACTURE_STAGES, 1 + Math.floor((strain - FRACTURE_START) / (1 - FRACTURE_START) * FRACTURE_STAGES));
+    return Math.min(CRACK_COUNT, 1 + Math.floor((strain - FRACTURE_START) / (1 - FRACTURE_START) * CRACK_COUNT));
   }
 
-  function strokeFracture(scale) {
+  // Wandering hairlines across his body, in image space (0..1). Built once, so they appear in a fixed order.
+  function buildCracks() {
+    function wander(x, y, heading, steps) {
+      var path = [[x, y]];
+      for (var i = 0; i < steps; i++) {
+        heading += rand(-0.55, 0.55);
+        var length = rand(0.03, 0.055);
+        x += Math.cos(heading) * length / URN_ASPECT;
+        y += Math.sin(heading) * length;
+        if (x < 0.14 || x > 0.86 || y < 0.08 || y > 0.84) break;
+        path.push([x, y]);
+      }
+      return path;
+    }
+    for (var i = 0; i < CRACK_COUNT; i++) {
+      var heading = rand(0, Math.PI * 2);
+      var trunk = wander(rand(0.25, 0.75), rand(0.15, 0.78), heading, 6);
+      var fork = trunk[Math.floor(trunk.length / 2)];
+      var turn = rand(0.7, 1.3) * (Math.random() < 0.5 ? 1 : -1);
+      crackPaths.push([trunk, wander(fork[0], fork[1], heading + turn, 3)]);
+    }
+  }
+
+  function strokeCracks(visible, scale, offset) {
     crackCtx.beginPath();
-    fractureLines.forEach(function (line) {
-      line.forEach(function (p, i) {
-        var x = p[0] * urn.w * scale;
-        var y = p[1] * urn.h * scale;
-        if (i === 0) crackCtx.moveTo(x, y); else crackCtx.lineTo(x, y);
+    for (var i = 0; i < visible; i++) {
+      crackPaths[i].forEach(function (path) {
+        path.forEach(function (p, index) {
+          var x = p[0] * urn.w * scale + offset;
+          var y = p[1] * urn.h * scale + offset;
+          if (index === 0) crackCtx.moveTo(x, y); else crackCtx.lineTo(x, y);
+        });
       });
-    });
+    }
     crackCtx.stroke();
   }
 
-  // The urn is pre-rendered with its damage glow so the lines stay clipped to his silhouette.
+  // The urn is pre-rendered with its cracks so they stay clipped to his silhouette. Each crack is a dark
+  // hairline with a pale edge beside it, about the weight of the pattern etched into the jar.
   function renderUrn() {
     if (!urnImg.complete || !urnImg.naturalWidth || !urn.w) return;
     var scale = window.devicePixelRatio || 1;
@@ -916,18 +1044,15 @@
     urnDirty = false;
     renderedStage = getDamageStage();
     if (!renderedStage) return;
-    var strength = renderedStage / FRACTURE_STAGES;
     crackCtx.globalCompositeOperation = 'source-atop';
     crackCtx.lineCap = 'round';
     crackCtx.lineJoin = 'round';
-    crackCtx.strokeStyle = 'rgba(4, 19, 15, ' + (0.45 + 0.45 * strength) + ')';
-    crackCtx.lineWidth = (1 + 3 * strength) * scale;
-    strokeFracture(scale);
-    crackCtx.shadowColor = '#7dffd0';
-    crackCtx.shadowBlur = (4 + 10 * strength) * scale;
-    crackCtx.strokeStyle = 'rgba(184, 255, 232, ' + (0.35 + 0.65 * strength) + ')';
-    crackCtx.lineWidth = (0.6 + 1.6 * strength) * scale;
-    strokeFracture(scale);
+    crackCtx.strokeStyle = 'rgba(10, 44, 52, 0.7)';
+    crackCtx.lineWidth = 1.3 * scale;
+    strokeCracks(renderedStage, scale, 0);
+    crackCtx.strokeStyle = 'rgba(222, 250, 255, 0.6)';
+    crackCtx.lineWidth = 0.6 * scale;
+    strokeCracks(renderedStage, scale, 0.9 * scale);
   }
 
   function breakUrn() {
@@ -944,6 +1069,8 @@
     });
     fillBag(Math.round(BREAK_BAG_SOULS * getBuff('health')), urn.x);
     addText(urn.x, urn.y - urn.h / 2, 'SHATTERED!', '#e8c46a');
+    addEffect('flash', urn.x, urn.y, urn.h * 1.6);
+    burstParticles('soul', urn.x, urn.y, 30, 520);
     urn.broken = true;
     urn.grabbed = false;
     shatters++;
@@ -962,6 +1089,7 @@
   function respawnUrn() {
     urn.broken = false;
     urn.descending = true;
+    anger = 0;
     urn.x = width / 2;
     urn.y = -urn.h / 2;
     urn.vx = 0;
@@ -982,6 +1110,10 @@
       shard.x += shard.vx * dt;
       shard.y += shard.vy * dt;
       shard.a += shard.va * dt;
+      if (shard.x < 10 || shard.x > width - 10) {
+        shard.x = clamp(shard.x, 10, width - 10);
+        shard.vx *= -0.5;
+      }
       if (shard.y > floorY - 10 && shard.vy > 0) {
         shard.y = floorY - 10;
         shard.vy *= -0.35;
@@ -994,42 +1126,123 @@
 
   // ---- Souls ----
 
-  // A glowing orb with dark bands, drawn once and stamped for every soul.
-  function buildSoulSprite() {
-    soulSprite.width = 96;
-    soulSprite.height = 96;
-    var c = soulSprite.getContext('2d');
-    var glow = c.createRadialGradient(48, 48, 6, 48, 48, 48);
-    glow.addColorStop(0, 'rgba(90, 255, 180, 0.75)');
-    glow.addColorStop(0.45, 'rgba(60, 230, 150, 0.22)');
-    glow.addColorStop(1, 'rgba(60, 230, 150, 0)');
-    c.fillStyle = glow;
-    c.fillRect(0, 0, 96, 96);
-    c.strokeStyle = 'rgba(170, 255, 215, 0.35)';
-    c.lineWidth = 2;
-    [0.5, 2.1, 3.6, 5.2].forEach(function (angle) {
-      c.beginPath();
-      c.moveTo(48, 48);
-      c.lineTo(48 + Math.cos(angle) * 44, 48 + Math.sin(angle) * 44);
-      c.stroke();
+  // Soft round sprites, drawn once per colour and stamped for every particle and flash.
+  function buildGlows() {
+    Object.keys(GLOW_COLORS).forEach(function (name) {
+      var sprite = document.createElement('canvas');
+      sprite.width = 64;
+      sprite.height = 64;
+      var c = sprite.getContext('2d');
+      var fill = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+      fill.addColorStop(0, 'rgba(' + GLOW_COLORS[name] + ', 1)');
+      fill.addColorStop(0.35, 'rgba(' + GLOW_COLORS[name] + ', 0.55)');
+      fill.addColorStop(1, 'rgba(' + GLOW_COLORS[name] + ', 0)');
+      c.fillStyle = fill;
+      c.fillRect(0, 0, 64, 64);
+      glows[name] = sprite;
     });
-    var core = c.createRadialGradient(43, 42, 2, 48, 48, 17);
-    core.addColorStop(0, '#f2fff9');
-    core.addColorStop(0.45, '#4dffb0');
-    core.addColorStop(1, '#0b7a52');
+  }
+
+  // The soul orb: a bright green sphere with a hot core, a wide bloom and a faint vertical glint.
+  function buildSoulSprite() {
+    soulSprite.width = 128;
+    soulSprite.height = 128;
+    var c = soulSprite.getContext('2d');
+    var bloom = c.createRadialGradient(64, 64, 4, 64, 64, 64);
+    bloom.addColorStop(0, 'rgba(120, 255, 190, 0.85)');
+    bloom.addColorStop(0.3, 'rgba(60, 235, 150, 0.35)');
+    bloom.addColorStop(1, 'rgba(60, 235, 150, 0)');
+    c.fillStyle = bloom;
+    c.fillRect(0, 0, 128, 128);
+    c.fillStyle = 'rgba(200, 255, 225, 0.2)';
     c.beginPath();
-    c.arc(48, 48, 17, 0, Math.PI * 2);
-    c.fillStyle = core;
+    c.ellipse(64, 64, 2, 40, 0, 0, Math.PI * 2);
+    c.fill();
+    var sphere = c.createRadialGradient(58, 56, 2, 64, 64, 20);
+    sphere.addColorStop(0, '#ffffff');
+    sphere.addColorStop(0.3, '#b8ffd9');
+    sphere.addColorStop(0.7, '#35e58f');
+    sphere.addColorStop(1, '#0e8a57');
+    c.beginPath();
+    c.arc(64, 64, 20, 0, Math.PI * 2);
+    c.fillStyle = sphere;
     c.fill();
     c.clip();
-    c.strokeStyle = 'rgba(3, 48, 32, 0.6)';
-    c.lineWidth = 3;
+    c.strokeStyle = 'rgba(6, 70, 44, 0.45)';
+    c.lineWidth = 2.2;
     c.beginPath();
-    c.ellipse(48, 48, 17, 6, 0, 0, Math.PI * 2);
+    c.ellipse(64, 64, 20, 7, 0, 0, Math.PI * 2);
     c.stroke();
     c.beginPath();
-    c.ellipse(48, 48, 6, 17, 0, 0, Math.PI * 2);
+    c.ellipse(64, 64, 7, 20, 0, 0, Math.PI * 2);
     c.stroke();
+    c.strokeStyle = 'rgba(5, 60, 40, 0.6)';
+    c.beginPath();
+    c.arc(64, 64, 20, 0, Math.PI * 2);
+    c.stroke();
+  }
+
+  // The soul bag: a dark metal cage ball with round openings onto a red core, the middle
+  // opening holding a triangle plate.
+  function buildBagSprite() {
+    bagSprite.width = 128;
+    bagSprite.height = 128;
+    var c = bagSprite.getContext('2d');
+    var radius = 58;
+    var core = c.createRadialGradient(64, 64, 5, 64, 64, radius);
+    core.addColorStop(0, '#7a2a20');
+    core.addColorStop(1, '#2a0f0c');
+    var metal = c.createLinearGradient(20, 14, 108, 114);
+    metal.addColorStop(0, '#8b9a96');
+    metal.addColorStop(0.45, '#2b3533');
+    metal.addColorStop(1, '#141a19');
+    function fillCircle(x, y, r, style) {
+      c.beginPath();
+      c.arc(x, y, r, 0, Math.PI * 2);
+      c.fillStyle = style;
+      c.fill();
+    }
+    function rimCircle(x, y, r) {
+      c.lineWidth = 2.5;
+      c.strokeStyle = '#0e1312';
+      c.beginPath();
+      c.arc(x, y, r, 0, Math.PI * 2);
+      c.stroke();
+      c.strokeStyle = 'rgba(200, 215, 210, 0.35)';
+      c.beginPath();
+      c.arc(x, y, r + 2, Math.PI * 1.05, Math.PI * 1.6);
+      c.stroke();
+    }
+    c.beginPath();
+    c.arc(64, 64, radius, 0, Math.PI * 2);
+    c.clip();
+    c.fillStyle = metal;
+    c.fillRect(0, 0, 128, 128);
+    [[18, 64], [110, 64], [64, 18], [64, 110]].forEach(function (spot) {
+      fillCircle(spot[0], spot[1], 20, core);
+      rimCircle(spot[0], spot[1], 20);
+      c.lineWidth = 4;
+      c.strokeStyle = metal;
+      c.beginPath();
+      c.arc(spot[0], spot[1], 11, 0, Math.PI * 2);
+      c.stroke();
+    });
+    fillCircle(64, 64, 26, core);
+    rimCircle(64, 64, 26);
+    c.fillStyle = metal;
+    c.beginPath();
+    c.moveTo(64, 42);
+    c.lineTo(83, 75);
+    c.lineTo(45, 75);
+    c.closePath();
+    c.fill();
+    fillCircle(64, 64, 7, core);
+    var shade = c.createRadialGradient(46, 42, 8, 64, 64, radius);
+    shade.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+    shade.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+    shade.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
+    c.fillStyle = shade;
+    c.fillRect(0, 0, 128, 128);
   }
 
   // Souls burst from where he was hit; with no hit point they seep out of a random spot on him.
@@ -1092,6 +1305,7 @@
       if (distance < reach) {
         addScore(soul.value);
         addText(soul.x, soul.y, '+' + soul.value, '#7dffd0');
+        burstParticles('soul', soul.x, soul.y, 3, 120);
         souls.splice(i, 1);
       } else if (now - soul.born > soul.life || soul.y < -40) {
         loseSoul(soul.value);
@@ -1102,15 +1316,17 @@
 
   // ---- Urn ----
 
-  function damageUrn(amount, worldX, worldY, voiceGroup) {
+  function damageUrn(amount, worldX, worldY) {
     if (urn.broken) return;
     urn.descending = false;
     leak = Math.min(MAX_LEAK, leak + amount);
     stress += amount;
+    anger = Math.min(100, anger + amount * ANGER_PER_DAMAGE);
     var burst = Math.round(amount * BURST_SOULS_PER_DAMAGE * getBuff('ammo'));
     for (var i = 0; i < burst; i++) spawnSoul(worldX, worldY);
     if (amount >= SHAKE_MIN_DAMAGE) shake = MAX_SHAKE;
     lastEventAt = performance.now();
+    lastTouchedAt = lastEventAt;
     if (stress >= BREAK_AT) {
       breakUrn();
       return;
@@ -1118,7 +1334,7 @@
     painBank += amount;
     if (painBank >= TALK_DAMAGE) {
       painBank = 0;
-      say(voiceGroup || pick(PAIN_GROUPS), false);
+      sayMood('hurt');
     }
   }
 
@@ -1134,7 +1350,8 @@
     urn.grabbedAt = performance.now();
     lastEventAt = urn.grabbedAt;
     urn.descending = false;
-    say('idol_picked_up', false);
+    lastTouchedAt = urn.grabbedAt;
+    sayMood('pickup');
   }
 
   function releaseUrn() {
@@ -1216,8 +1433,7 @@
 
     if (now - lastEventAt > IDLE_TALK_MS) {
       lastEventAt = now;
-      idleTalks++;
-      say(idleTalks % 4 === 0 ? 'koth_warning' : 'idol_waiting', false);
+      sayMood('idle');
     }
   }
 
@@ -1225,6 +1441,7 @@
     var recovery = dt / getBuff('bulletResist');
     leak = Math.max(0, leak - LEAK_DECAY * recovery);
     stress = Math.max(0, stress - STRESS_DECAY * recovery);
+    anger = Math.max(0, anger - ANGER_DECAY * dt);
     soulDebt += leak * LEAK_SOULS_PER_SEC * dt;
     while (soulDebt >= 1) { soulDebt--; spawnSoul(); }
     var integrity = urn.broken ? 0 : Math.round((1 - stress / BREAK_AT) * 100);
@@ -1240,7 +1457,10 @@
     var length = Math.sqrt(dx * dx + dy * dy) || 1;
     pushUrn(dx / length, dy / length, strike.force, rand(-9, 9));
     urn.vy -= strike.force * 0.35;
-    addText(pointer.x, pointer.y, strike === HEAVY_MELEE ? 'HEAVY!' : 'POW', '#e8c46a');
+    var heavy = strike === HEAVY_MELEE;
+    addEffect('impact', pointer.x, pointer.y, heavy ? 2 : 1);
+    burstParticles('spark', pointer.x, pointer.y, heavy ? 12 : 5, 420);
+    if (heavy) addText(pointer.x, pointer.y - 34, 'HEAVY!', '#e8c46a');
     damageUrn(strike.damage * getBuff('weapon'), pointer.x, pointer.y);
   }
 
@@ -1248,15 +1468,36 @@
     if (now - lastShotAt < gun.intervalMs / getBuff('fireRate')) return;
     lastShotAt = now;
     recoil = 1;
-    var originX = width / 2;
-    var originY = floorY + 30;
-    var aim = Math.atan2(pointer.y - originY, pointer.x - originX);
+    // The gun sits just off the right end of the ability bar, and every round lands on the crosshair.
+    var originX = width / 2 + Math.min(width * 0.36, 420);
+    var originY = floorY + 14;
+    addEffect('muzzle', originX, originY, gun.pellets > 1 ? 1.6 : 1, Math.atan2(pointer.y - originY, pointer.x - originX));
     for (var i = 0; i < gun.pellets; i++) {
-      var angle = aim + rand(-gun.spread, gun.spread);
-      shootRay(originX, originY, Math.cos(angle), Math.sin(angle), gun.damage * getBuff('weapon'), gun.force);
+      var angle = rand(0, Math.PI * 2);
+      var miss = Math.sqrt(Math.random()) * gun.spread;
+      shootAt(originX, originY, pointer.x + Math.cos(angle) * miss, pointer.y + Math.sin(angle) * miss,
+        gun.damage * getBuff('weapon'), gun.force);
     }
   }
 
+  function shootAt(ox, oy, x, y, damage, force) {
+    tracers.push({ x1: ox, y1: oy, x2: x, y2: y, born: performance.now() });
+    addEffect('flash', x, y, 18);
+    var statue = findStatueAt(x, y);
+    if (statue) {
+      breakStatue(statue);
+      return;
+    }
+    if (!checkInsideUrn(x, y, 1)) return;
+    var dx = x - ox;
+    var dy = y - oy;
+    var length = Math.sqrt(dx * dx + dy * dy) || 1;
+    burstParticles('spark', x, y, 3, 300);
+    pushUrn(dx / length, dy / length, force, rand(-1, 1) * force * 0.01);
+    damageUrn(damage, x, y);
+  }
+
+  // Turret rounds travel from the turret, so they are traced as a ray.
   function shootRay(ox, oy, dx, dy, damage, force) {
     var distance = castRayAtUrn(ox, oy, dx, dy);
     var blocker = findStatueOnRay(ox, oy, dx, dy, distance < 0 ? 2400 : distance);
@@ -1269,6 +1510,8 @@
       return;
     }
     if (distance < 0) return;
+    burstParticles('spark', endX, endY, 3, 300);
+    addEffect('flash', endX, endY, 22);
     pushUrn(dx, dy, force, rand(-1, 1) * force * 0.01);
     damageUrn(damage, endX, endY);
   }
@@ -1283,6 +1526,10 @@
   function explodeBomb(bomb) {
     var reach = BOMB_RADIUS * getBuff('range');
     blasts.push({ x: bomb.x, y: bomb.y, radius: reach, born: performance.now() });
+    addEffect('flash', bomb.x, bomb.y, reach * 0.9);
+    burstParticles('fire', bomb.x, bomb.y, 26, 520);
+    burstParticles('spark', bomb.x, bomb.y, 16, 760);
+    burstParticles('smoke', bomb.x, bomb.y, 10, 160);
     statues.filter(function (statue) {
       return Math.abs(statue.x - bomb.x) < reach * 0.5 && bomb.y > floorY - reach * 0.5;
     }).forEach(breakStatue);
@@ -1333,6 +1580,7 @@
 
   function puddlePunch() {
     gooFist = { x: pointer.x, born: performance.now() };
+    burstParticles('goo', pointer.x, floorY - 10, 14, 520);
     statues.filter(function (statue) { return Math.abs(statue.x - pointer.x) < 80; }).forEach(breakStatue);
     if (urn.broken) return;
     var extents = getUrnExtents();
@@ -1345,9 +1593,21 @@
     damageUrn(PUDDLE_DAMAGE * getBuff('spirit'), urn.x, bottom);
   }
 
-  function addFlame(x, y, vx, vy) {
+  function addParticle(kind, x, y, vx, vy, life, size) {
     if (particles.length >= MAX_PARTICLES) return;
-    particles.push({ x: x, y: y, vx: vx, vy: vy, born: performance.now(), life: rand(250, 550), size: rand(8, 18) });
+    particles.push({ kind: kind, x: x, y: y, vx: vx, vy: vy, born: performance.now(), life: life, size: size });
+  }
+
+  function burstParticles(kind, x, y, count, speed) {
+    for (var i = 0; i < count; i++) {
+      var angle = rand(0, Math.PI * 2);
+      var velocity = rand(0.3, 1) * speed;
+      addParticle(kind, x, y, Math.cos(angle) * velocity, Math.sin(angle) * velocity - speed * 0.25, rand(300, 700), rand(8, 20));
+    }
+  }
+
+  function addEffect(type, x, y, scale, angle) {
+    effects.push({ type: type, x: x, y: y, scale: scale, angle: angle || 0, born: performance.now() });
   }
 
   function sprayFire(now) {
@@ -1355,15 +1615,18 @@
     var dy = urn.y - pointer.y;
     var distance = Math.sqrt(dx * dx + dy * dy) || 1;
     for (var i = 0; i < 3; i++) {
-      addFlame(pointer.x, pointer.y, dx / distance * 500 + rand(-120, 120), dy / distance * 500 + rand(-120, 120));
+      addParticle('fire', pointer.x, pointer.y,
+        dx / distance * 520 + rand(-130, 130), dy / distance * 520 + rand(-130, 130), rand(280, 560), rand(10, 20));
     }
+    if (Math.random() < 0.2) addParticle('smoke', pointer.x, pointer.y, dx / distance * 200, dy / distance * 200 - 60, 700, 12);
     if (!urn.broken && distance < urn.h * FLAME_REACH * getBuff('range')) burnUntil = now + BURN_MS;
   }
 
   function updateBurn(now, dt) {
     if (urn.broken || now > burnUntil) return;
     var spot = fromUrnLocal(rand(-urn.w / 3, urn.w / 3), rand(-urn.h / 2.2, urn.h / 2.4));
-    addFlame(urn.x + spot.x, urn.y + spot.y, rand(-40, 40), rand(-220, -90));
+    addParticle('fire', urn.x + spot.x, urn.y + spot.y, rand(-40, 40), rand(-200, -80), rand(300, 600), rand(8, 16));
+    if (Math.random() < 0.3) addParticle('ember', urn.x + spot.x, urn.y + spot.y, rand(-60, 60), rand(-260, -120), rand(600, 1100), rand(4, 7));
     damageUrn(BURN_DAMAGE_PER_SEC * getBuff('spirit') * dt, urn.x + spot.x, urn.y + spot.y);
     // Hot floor: he hops around while he is on fire.
     if (urn.onFloor && Math.random() < 3 * dt) {
@@ -1375,14 +1638,30 @@
   function updateParticles(now, dt) {
     for (var i = particles.length - 1; i >= 0; i--) {
       var p = particles[i];
+      var kind = PARTICLE_KINDS[p.kind];
+      var drag = 1 - Math.min(1, kind.drag * dt);
+      p.vy += kind.gravity * dt;
+      p.vx *= drag;
+      p.vy *= drag;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vy += (p.gold ? 900 : -300) * dt;
+      if (kind.gravity > 0 && p.y > floorY - 3) {
+        p.y = floorY - 3;
+        p.vy *= -0.3;
+        p.vx *= 0.6;
+      }
       if (now - p.born > p.life) particles.splice(i, 1);
     }
   }
 
   function updateVortex(dt) {
+    // Motes spiral into the core from all around it.
+    for (var i = 0; i < 2; i++) {
+      var angle = rand(0, Math.PI * 2);
+      var radius = rand(90, 190);
+      addParticle('pull', pointer.x + Math.cos(angle) * radius, pointer.y + Math.sin(angle) * radius,
+        -Math.cos(angle) * radius * 2.4 - Math.sin(angle) * 160, -Math.sin(angle) * radius * 2.4 + Math.cos(angle) * 160, 380, 10);
+    }
     var dx = pointer.x - urn.x;
     var dy = pointer.y - urn.y;
     var distance = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1421,21 +1700,134 @@
       var dx = urn.x + rand(-urn.w / 4, urn.w / 4) - turret.x;
       var dy = urn.y + rand(-urn.h / 4, urn.h / 4) - originY;
       var length = Math.sqrt(dx * dx + dy * dy) || 1;
+      addEffect('muzzle', turret.x + dx / length * 34, originY + dy / length * 34, 0.8, Math.atan2(dy, dx));
       shootRay(turret.x, originY, dx / length, dy / length, TURRET_DAMAGE * getBuff('weapon'), 90);
     });
   }
 
+  function slamUrn() {
+    if (urn.broken) return;
+    addEffect('impact', urn.x, urn.y - urn.h / 2, 1.4);
+    if (urn.onFloor) {
+      damageUrn(SLAM_FLOOR_DAMAGE * getBuff('spirit'), urn.x, floorY);
+      return;
+    }
+    urn.grabbed = false;
+    urn.descending = false;
+    urn.vx *= 0.3;
+    urn.vy = SLAM_SPEED;
+  }
+
+  function chargeUrn() {
+    if (urn.broken) return;
+    var side = urn.x >= pointer.x ? 1 : -1;
+    urn.grabbed = false;
+    urn.vx = side * CHARGE_SPEED;
+    urn.vy = -350;
+    urn.va += side * 8;
+    addEffect('impact', urn.x - side * urn.w / 2, urn.y, 1.5);
+    damageUrn(CHARGE_DAMAGE * getBuff('spirit'), urn.x - side * urn.w / 2, urn.y);
+  }
+
+  function leapUrn() {
+    if (urn.broken) return;
+    urn.grabbed = false;
+    urn.vy = -LEAP_SPEED;
+    urn.vx += rand(-300, 300);
+    urn.va += rand(-4, 4);
+    burstParticles('gold', urn.x, urn.y + urn.h / 2, 12, 360);
+    damageUrn(2, urn.x, urn.y + urn.h / 2);
+  }
+
+  function markKnockdown() {
+    if (knockdownAt || !checkInsideUrn(pointer.x, pointer.y, GRAB_PAD)) return;
+    knockdownAt = performance.now() + KNOCKDOWN_DELAY_MS;
+  }
+
+  function updateKnockdown(now) {
+    if (!knockdownAt || now < knockdownAt) return;
+    knockdownAt = 0;
+    if (urn.broken) return;
+    tracers.push({ x1: urn.x, y1: 0, x2: urn.x, y2: urn.y, born: now });
+    addEffect('flash', urn.x, urn.y, urn.h);
+    burstParticles('spark', urn.x, urn.y, 14, 600);
+    urn.grabbed = false;
+    urn.vy = 1800;
+    urn.va += rand(-10, 10);
+    damageUrn(KNOCKDOWN_DAMAGE * getBuff('weapon'), urn.x, urn.y - urn.h / 2);
+  }
+
+  function updateSiphon(now, dt) {
+    var dx = pointer.x - urn.x;
+    var dy = pointer.y - urn.y;
+    var distance = Math.sqrt(dx * dx + dy * dy) || 1;
+    siphoning = !urn.broken && distance < SIPHON_REACH * getBuff('range');
+    if (!siphoning) return;
+    damageUrn(SIPHON_DAMAGE_PER_SEC * getBuff('spirit') * dt, urn.x, urn.y);
+    if (now - lastSiphonSoulAt < SIPHON_SOUL_MS || souls.length >= MAX_SOULS) return;
+    lastSiphonSoulAt = now;
+    spawnSoul(urn.x, urn.y);
+    var soul = souls[souls.length - 1];
+    soul.vx = dx / distance * 700;
+    soul.vy = dy / distance * 700;
+  }
+
+  function rollBall() {
+    if (balls.length >= MAX_BALLS) return;
+    var fromLeft = pointer.x > width / 2;
+    balls.push({
+      x: fromLeft ? -30 : width + 30, y: clamp(pointer.y, 40, floorY - 30),
+      vx: (fromLeft ? 1 : -1) * BALL_SPEED, lastZap: 0, zapUntil: 0
+    });
+  }
+
+  function updateBalls(now, dt) {
+    var reach = BALL_REACH * getBuff('range');
+    for (var i = balls.length - 1; i >= 0; i--) {
+      var ball = balls[i];
+      ball.x += ball.vx * dt;
+      if (ball.x < -60 || ball.x > width + 60) {
+        balls.splice(i, 1);
+        continue;
+      }
+      var dx = urn.x - ball.x;
+      var dy = urn.y - ball.y;
+      if (urn.broken || dx * dx + dy * dy > reach * reach || now - ball.lastZap < BALL_ZAP_MS) continue;
+      ball.lastZap = now;
+      ball.zapUntil = now + 90;
+      urn.vx += rand(-120, 120);
+      urn.vy -= 60;
+      damageUrn(BALL_DAMAGE * getBuff('spirit'), urn.x + rand(-20, 20), urn.y + rand(-40, 40));
+    }
+  }
+
+  function updateGoose(now, dt) {
+    if (!owned.goose) return;
+    if (!nextGooseBuffAt) nextGooseBuffAt = now + GOOSE_BUFF_MS;
+    gooseSouls += GOOSE_SOULS_PER_SEC * dt;
+    if (gooseSouls >= GOOSE_PAYOUT) {
+      gooseSouls -= GOOSE_PAYOUT;
+      addScore(GOOSE_PAYOUT);
+    }
+    if (now > nextGooseBuffAt) {
+      nextGooseBuffAt = now + GOOSE_BUFF_MS;
+      spawnTome(urn.x, urn.y - urn.h / 2, rand(-200, 200), -600);
+    }
+  }
+
   function updateHeldWeapons(now, dt) {
+    siphoning = false;
     if (!pointer.down) return;
     if (tool === 'smg') fireGun(SMG, now);
     else if (tool === 'fire') sprayFire(now);
     else if (tool === 'vortex') updateVortex(dt);
+    else if (tool === 'siphon') updateSiphon(now, dt);
   }
 
   // ---- Ability bar and shop ----
 
-  function getTool(id) {
-    return TOOLS.filter(function (t) { return t.id === id; })[0];
+  function getEntry(id) {
+    return SHOP_ENTRIES.filter(function (entry) { return entry.id === id; })[0];
   }
 
   function formatSouls(amount) {
@@ -1444,6 +1836,14 @@
 
   function openShop() { shop.classList.add('open'); }
   function closeShop() { shop.classList.remove('open'); }
+
+  function recalcItems() {
+    itemBonus = {};
+    ITEMS.forEach(function (item) {
+      if (!owned[item.id]) return;
+      Object.keys(item.mods).forEach(function (stat) { itemBonus[stat] = (itemBonus[stat] || 0) + item.mods[stat]; });
+    });
+  }
 
   function selectTool(id) {
     if (!owned[id]) {
@@ -1456,10 +1856,16 @@
     refreshTools();
   }
 
-  function buyTool(id) {
-    var def = getTool(id);
+  // Number keys pick from the abilities owned so far, in bar order.
+  function selectSlot(index) {
+    var mine = TOOLS.filter(function (def) { return owned[def.id]; });
+    if (mine[index]) selectTool(mine[index].id);
+  }
+
+  function buyEntry(id) {
+    var entry = getEntry(id);
     if (!owned[id]) {
-      if (score < def.cost) {
+      if (score < entry.cost) {
         var row = shopRows[id];
         row.classList.remove('nope');
         void row.offsetWidth;
@@ -1467,99 +1873,403 @@
         return;
       }
       owned[id] = true;
-      addScore(-def.cost);
+      addScore(-entry.cost);
+      recalcItems();
+    }
+    if (entry.mods) {
+      refreshTools();
+      return;
     }
     closeShop();
     selectTool(id);
+    // A new ability can wrap the bar onto another row, which moves the floor.
+    resize();
   }
 
   function refreshTools() {
+    var slot = 0;
     TOOLS.forEach(function (def) {
       var button = toolButtons[def.id];
-      var row = shopRows[def.id];
-      var locked = !owned[def.id];
+      var key = button.querySelector('.key');
       button.classList.toggle('selected', tool === def.id);
-      button.classList.toggle('locked', locked);
-      button.querySelector('.cost').textContent = locked ? formatSouls(def.cost) : '';
-      row.classList.toggle('poor', locked && score < def.cost);
+      button.classList.toggle('locked', !owned[def.id]);
+      if (!owned[def.id]) return;
+      slot++;
+      key.textContent = slot % 10;
+      key.style.visibility = slot <= 10 ? 'visible' : 'hidden';
+    });
+    SHOP_ENTRIES.forEach(function (entry) {
+      var row = shopRows[entry.id];
+      var locked = !owned[entry.id];
+      row.classList.toggle('poor', locked && score < entry.cost);
       row.querySelector('.state').textContent = locked ? '' : 'OWNED';
       row.querySelector('.price').style.display = locked ? 'flex' : 'none';
     });
-    hint.textContent = getTool(tool).hint;
+  }
+
+  function addShopHeading(text) {
+    var heading = document.createElement('div');
+    heading.className = 'shopHead';
+    heading.textContent = text;
+    shopList.appendChild(heading);
+  }
+
+  function addShopRow(entry) {
+    var row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'row ' + entry.kind;
+    row.dataset.tip = entry.name + '|' + entry.hint;
+    row.innerHTML = '<img class="icon" src="' + IMG_DIR + entry.icon + '" alt="">' +
+      '<span class="info"><span>' + entry.name + '</span>' +
+      '<span class="price"><img src="' + IMG_DIR + 'Souls_icon.png" alt="">' + formatSouls(entry.cost) + '</span></span>' +
+      '<span class="state"></span>';
+    row.addEventListener('click', function () { buyEntry(entry.id); });
+    shopList.appendChild(row);
+    shopRows[entry.id] = row;
   }
 
   function buildToolbar() {
-    TOOLS.forEach(function (def, index) {
-      var icon = '<img class="icon" src="' + IMG_DIR + def.icon + '" alt="">';
+    addShopHeading('WEAPONS AND ABILITIES');
+    TOOLS.forEach(function (def) {
       var button = document.createElement('button');
       button.type = 'button';
       button.className = 'tool';
-      button.title = def.name + ': ' + def.hint;
-      button.innerHTML = '<span class="disc">' + icon + '</span><span class="key">' + ((index + 1) % 10) + '</span><span class="cost"></span>';
+      button.dataset.tip = def.name + '|' + def.hint;
+      button.innerHTML = '<span class="disc"><img class="icon" src="' + IMG_DIR + def.icon + '" alt=""></span><span class="key"></span>';
       button.addEventListener('click', function () { selectTool(def.id); });
       toolbar.appendChild(button);
       toolButtons[def.id] = button;
-
-      var row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'row ' + def.kind;
-      row.title = def.hint;
-      row.innerHTML = icon + '<span class="info"><span>' + def.name + '</span>' +
-        '<span class="price"><img src="' + IMG_DIR + 'Souls_icon.png" alt="">' + formatSouls(def.cost) + '</span></span>' +
-        '<span class="state"></span>';
-      row.addEventListener('click', function () { buyTool(def.id); });
-      shopList.appendChild(row);
-      shopRows[def.id] = row;
+      addShopRow(def);
     });
+    addShopHeading('ITEMS');
+    ITEMS.forEach(addShopRow);
     refreshTools();
   }
 
   // ---- Drawing ----
 
+  function strokeLine(x1, y1, x2, y2) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  function drawGlow(sprite, x, y, radius) {
+    ctx.drawImage(sprite, x - radius, y - radius, radius * 2, radius * 2);
+  }
+
   function drawTurret(turret) {
     var originY = floorY - 30;
     var angle = Math.atan2(urn.y - originY, urn.x - turret.x);
-    ctx.fillStyle = '#2b3a36';
-    ctx.fillRect(turret.x - 16, floorY - 22, 32, 22);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#2b2f2c';
+    ctx.lineWidth = 5;
+    strokeLine(turret.x, originY + 6, turret.x - 20, floorY);
+    strokeLine(turret.x, originY + 6, turret.x + 20, floorY);
+    strokeLine(turret.x, originY + 6, turret.x, floorY);
     ctx.save();
     ctx.translate(turret.x, originY);
     ctx.rotate(angle);
-    ctx.fillStyle = '#e8c46a';
-    ctx.fillRect(0, -4, 30, 8);
-    ctx.restore();
-    ctx.fillStyle = '#4c625c';
+    ctx.fillStyle = '#1f2321';
+    ctx.fillRect(6, -4, 30, 8);
+    ctx.fillStyle = '#e9982f';
+    ctx.fillRect(30, -5, 6, 10);
+    ctx.fillStyle = '#4a564f';
+    ctx.strokeStyle = '#20241f';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(turret.x, originY, 11, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    ctx.globalCompositeOperation = 'lighter';
+    drawGlow(glows.teal, turret.x, originY, 10);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.lineWidth = 1;
+    ctx.lineCap = 'butt';
   }
 
   function drawGooFist(now) {
-    var t = (now - gooFist.born) / 320;
+    var t = (now - gooFist.born) / 360;
     if (t >= 1) { gooFist = null; return; }
-    var rise = Math.sin(Math.PI * Math.max(0, t)) * PUDDLE_REACH;
-    ctx.fillStyle = 'rgba(170, 220, 120, 0.85)';
+    var x = gooFist.x;
+    var top = floorY - Math.sin(Math.PI * Math.max(0, t)) * PUDDLE_REACH;
+    ctx.fillStyle = 'rgba(70, 130, 60, 0.8)';
     ctx.beginPath();
-    ctx.moveTo(gooFist.x - 60, floorY);
-    ctx.quadraticCurveTo(gooFist.x - 30, floorY - rise * 0.4, gooFist.x - 34, floorY - rise);
-    ctx.arc(gooFist.x, floorY - rise, 34, Math.PI, 0);
-    ctx.quadraticCurveTo(gooFist.x + 30, floorY - rise * 0.4, gooFist.x + 60, floorY);
+    ctx.ellipse(x, floorY, 80, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    var goo = ctx.createLinearGradient(0, top - 36, 0, floorY);
+    goo.addColorStop(0, '#d6f58a');
+    goo.addColorStop(0.4, '#8fd45a');
+    goo.addColorStop(1, '#3d7a3a');
+    ctx.fillStyle = goo;
+    ctx.beginPath();
+    ctx.moveTo(x - 62, floorY);
+    ctx.quadraticCurveTo(x - 30, floorY - (floorY - top) * 0.4, x - 36, top);
+    ctx.arc(x, top, 36, Math.PI, 0);
+    ctx.quadraticCurveTo(x + 30, floorY - (floorY - top) * 0.4, x + 62, floorY);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(40, 90, 40, 0.7)';
+    ctx.lineWidth = 3;
+    for (var knuckle = -1; knuckle <= 1; knuckle++) {
+      ctx.beginPath();
+      ctx.arc(x + knuckle * 20, top - 6, 11, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(x - 14, top - 16, 9, 5, -0.5, 0, Math.PI * 2);
     ctx.fill();
   }
 
   function drawVortex(now) {
-    ctx.fillStyle = 'rgba(8, 4, 20, 0.85)';
+    var x = pointer.x;
+    var y = pointer.y;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.55;
+    drawGlow(glows.blue, x, y, 150);
+    ctx.globalAlpha = 1;
+    ctx.lineCap = 'round';
+    for (var arm = 0; arm < 4; arm++) {
+      for (var step = 0; step < 3; step++) {
+        var start = now / 220 + arm * Math.PI / 2 + step * 0.5;
+        ctx.strokeStyle = 'rgba(150, 215, 255, ' + (0.8 - step * 0.22) + ')';
+        ctx.lineWidth = 5 - step * 1.3;
+        ctx.beginPath();
+        ctx.arc(x, y, 46 + step * 22, start, start + 0.9);
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    var core = ctx.createRadialGradient(x, y, 4, x, y, 40);
+    core.addColorStop(0, '#02030a');
+    core.addColorStop(0.75, '#050818');
+    core.addColorStop(1, 'rgba(120, 200, 255, 0.9)');
+    ctx.fillStyle = core;
     ctx.beginPath();
-    ctx.arc(pointer.x, pointer.y, 42, 0, Math.PI * 2);
+    ctx.arc(x, y, 40, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(170, 130, 255, 0.9)';
-    ctx.lineWidth = 3;
-    for (var ring = 0; ring < 3; ring++) {
-      var spin = now / 180 + ring * 2.1;
-      ctx.beginPath();
-      ctx.arc(pointer.x, pointer.y, 50 + ring * 16, spin, spin + 1.8);
-      ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.lineCap = 'butt';
+  }
+
+  function drawParticle(p, now) {
+    var kind = PARTICLE_KINDS[p.kind];
+    var age = clamp((now - p.born) / p.life, 0, 1);
+    if (p.kind === 'spark') {
+      ctx.globalAlpha = 1 - age;
+      ctx.strokeStyle = '#ffe9a8';
+      ctx.lineWidth = 2;
+      strokeLine(p.x, p.y, p.x - p.vx * 0.035, p.y - p.vy * 0.035);
+      return;
+    }
+    // Fire cools from yellow through orange to red as it rises.
+    var sprite = p.kind === 'fire' ? (age < 0.25 ? glows.yellow : (age < 0.6 ? glows.orange : glows.red)) : glows[kind.glow];
+    ctx.globalAlpha = (1 - age) * kind.alpha;
+    drawGlow(sprite, p.x, p.y, p.size * Math.max(0.1, kind.scale + kind.grow * age));
+  }
+
+  function drawParticles(now) {
+    [false, true].forEach(function (additive) {
+      ctx.globalCompositeOperation = additive ? 'lighter' : 'source-over';
+      particles.forEach(function (p) {
+        if (PARTICLE_KINDS[p.kind].additive === additive) drawParticle(p, now);
+      });
+    });
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
+  }
+
+  function drawBomb(bomb, now) {
+    var fuse = clamp((now - bomb.born) / BOMB_FUSE_MS, 0, 1);
+    // The light blinks faster as the fuse runs down.
+    var pulse = 0.5 + 0.5 * Math.sin(fuse * fuse * 60);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.5 + 0.4 * pulse;
+    drawGlow(glows.red, bomb.x, bomb.y, 34 + 16 * pulse);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#2a2623';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    for (var spike = 0; spike < 6; spike++) {
+      var angle = spike * Math.PI / 3;
+      strokeLine(bomb.x + Math.cos(angle) * 10, bomb.y + Math.sin(angle) * 10, bomb.x + Math.cos(angle) * 19, bomb.y + Math.sin(angle) * 19);
+    }
+    var shell = ctx.createRadialGradient(bomb.x - 4, bomb.y - 5, 1, bomb.x, bomb.y, 14);
+    shell.addColorStop(0, '#7a6f66');
+    shell.addColorStop(1, '#1f1b19');
+    ctx.fillStyle = shell;
+    ctx.beginPath();
+    ctx.arc(bomb.x, bomb.y, 13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = pulse > 0.5 ? '#ffd27a' : '#ff5a36';
+    ctx.beginPath();
+    ctx.arc(bomb.x, bomb.y, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.lineCap = 'butt';
+  }
+
+  // Each tracer is a streak that shortens toward the impact point as it fades.
+  function drawTracers(now) {
+    ctx.lineCap = 'round';
+    for (var i = tracers.length - 1; i >= 0; i--) {
+      var tracer = tracers[i];
+      var t = Math.max(0, (now - tracer.born) / 110);
+      if (t >= 1) { tracers.splice(i, 1); continue; }
+      var tailX = tracer.x1 + (tracer.x2 - tracer.x1) * t;
+      var tailY = tracer.y1 + (tracer.y2 - tracer.y1) * t;
+      var streak = ctx.createLinearGradient(tailX, tailY, tracer.x2, tracer.y2);
+      streak.addColorStop(0, 'rgba(255, 170, 60, 0)');
+      streak.addColorStop(1, 'rgba(255, 236, 170, ' + (1 - t) + ')');
+      ctx.strokeStyle = streak;
+      ctx.lineWidth = 5;
+      strokeLine(tailX, tailY, tracer.x2, tracer.y2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, ' + (1 - t) + ')';
+      ctx.lineWidth = 1.5;
+      strokeLine((tailX + tracer.x2) / 2, (tailY + tracer.y2) / 2, tracer.x2, tracer.y2);
     }
     ctx.lineWidth = 1;
+    ctx.lineCap = 'butt';
+  }
+
+  function drawBalls(now) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = '#d8f2ff';
+    ctx.lineWidth = 2.5;
+    balls.forEach(function (ball) {
+      drawGlow(glows.blue, ball.x, ball.y, 46);
+      drawGlow(glows.white, ball.x, ball.y, 16 + 3 * Math.sin(now / 60));
+      if (urn.broken || now > ball.zapUntil) return;
+      // A fresh jagged bolt every frame while it zaps.
+      ctx.beginPath();
+      ctx.moveTo(ball.x, ball.y);
+      for (var step = 1; step < 6; step++) {
+        ctx.lineTo(ball.x + (urn.x - ball.x) * step / 6 + rand(-14, 14), ball.y + (urn.y - ball.y) * step / 6 + rand(-14, 14));
+      }
+      ctx.lineTo(urn.x, urn.y);
+      ctx.stroke();
+    });
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.lineWidth = 1;
+  }
+
+  // A marker drops toward him while the knockdown counts down.
+  function drawKnockdown(now) {
+    if (!knockdownAt || urn.broken) return;
+    var left = clamp((knockdownAt - now) / KNOCKDOWN_DELAY_MS, 0, 1);
+    var y = urn.y - urn.h / 2 - 24 - left * 60;
+    ctx.fillStyle = '#e9982f';
+    ctx.beginPath();
+    ctx.moveTo(urn.x - 12, y - 16);
+    ctx.lineTo(urn.x + 12, y - 16);
+    ctx.lineTo(urn.x, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(233, 152, 47, ' + (1 - left * 0.6) + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(urn.x, urn.y, urn.h * 0.5 + left * 60, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+
+  // Two strands of soul-light twisting from him to the cursor.
+  function drawSiphon(now) {
+    if (!siphoning) return;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(125, 255, 208, 0.8)';
+    ctx.lineWidth = 3;
+    [0, Math.PI].forEach(function (phase) {
+      ctx.beginPath();
+      for (var step = 0; step <= 20; step++) {
+        var along = step / 20;
+        var sway = Math.sin(along * 10 - now / 90 + phase) * 8 * Math.sin(Math.PI * along);
+        var x = urn.x + (pointer.x - urn.x) * along + sway;
+        var y = urn.y + (pointer.y - urn.y) * along + sway;
+        if (step === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    });
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.lineWidth = 1;
+  }
+
+  // A chain from the cursor with a claw clamped on him.
+  function drawHook(now) {
+    if (!hookLine) return;
+    if (urn.broken || now - hookLine.born > 260) { hookLine = null; return; }
+    ctx.lineCap = 'round';
+    ctx.setLineDash([12, 7]);
+    ctx.strokeStyle = '#2a2623';
+    ctx.lineWidth = 8;
+    strokeLine(hookLine.x, hookLine.y, urn.x, urn.y);
+    ctx.strokeStyle = '#c9c2b4';
+    ctx.lineWidth = 4;
+    strokeLine(hookLine.x, hookLine.y, urn.x, urn.y);
+    ctx.setLineDash([]);
+    ctx.save();
+    ctx.translate(urn.x, urn.y);
+    ctx.rotate(Math.atan2(urn.y - hookLine.y, urn.x - hookLine.x));
+    ctx.strokeStyle = '#e9982f';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(0, 0, 22, -1.2, 1.2);
+    ctx.stroke();
+    ctx.restore();
+    ctx.lineWidth = 1;
+    ctx.lineCap = 'butt';
+  }
+
+  function drawEffects(now) {
+    for (var i = effects.length - 1; i >= 0; i--) {
+      var fx = effects[i];
+      var t = Math.max(0, (now - fx.born) / EFFECT_LIFE_MS[fx.type]);
+      if (t >= 1) { effects.splice(i, 1); continue; }
+      ctx.globalAlpha = 1 - t;
+      if (fx.type === 'flash') {
+        ctx.globalCompositeOperation = 'lighter';
+        drawGlow(glows.white, fx.x, fx.y, fx.scale * (0.6 + 0.6 * t));
+      } else if (fx.type === 'muzzle') {
+        ctx.globalCompositeOperation = 'lighter';
+        drawGlow(glows.yellow, fx.x, fx.y, 46 * fx.scale);
+        ctx.save();
+        ctx.translate(fx.x, fx.y);
+        ctx.rotate(fx.angle);
+        ctx.fillStyle = '#fff0c8';
+        ctx.beginPath();
+        ctx.moveTo(0, -7 * fx.scale);
+        ctx.lineTo(60 * fx.scale * (1 - t * 0.5), 0);
+        ctx.lineTo(0, 7 * fx.scale);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      } else {
+        // Melee and smash hits: a starburst with a ring racing outward.
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = '#fff4d6';
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 5 * (1 - t) * fx.scale + 0.5;
+        for (var spike = 0; spike < 8; spike++) {
+          var angle = spike * Math.PI / 4 + fx.born % 1;
+          strokeLine(
+            fx.x + Math.cos(angle) * (10 + 26 * t) * fx.scale, fx.y + Math.sin(angle) * (10 + 26 * t) * fx.scale,
+            fx.x + Math.cos(angle) * (22 + 52 * t) * fx.scale, fx.y + Math.sin(angle) * (22 + 52 * t) * fx.scale);
+        }
+        ctx.lineWidth = 3 * (1 - t) + 0.5;
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, (18 + 40 * t) * fx.scale, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
+    ctx.lineCap = 'butt';
   }
 
   function drawStatue(statue) {
@@ -1578,36 +2288,21 @@
   }
 
   function drawBag() {
-    var reach = BAG_RADIUS * 2.6;
-    var glow = ctx.createRadialGradient(bag.x, bag.y, 0, bag.x, bag.y, reach);
-    glow.addColorStop(0, 'rgba(90, 255, 180, 0.5)');
-    glow.addColorStop(1, 'rgba(90, 255, 180, 0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(bag.x - reach, bag.y - reach, reach * 2, reach * 2);
-    var metal = ctx.createRadialGradient(bag.x - 8, bag.y - 9, 2, bag.x, bag.y, BAG_RADIUS);
-    metal.addColorStop(0, '#e6efe9');
-    metal.addColorStop(0.5, '#6f807a');
-    metal.addColorStop(1, '#1b2422');
-    ctx.fillStyle = metal;
-    ctx.beginPath();
-    ctx.arc(bag.x, bag.y, BAG_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(8, 16, 14, 0.7)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(bag.x, bag.y, BAG_RADIUS, BAG_RADIUS * 0.36, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.ellipse(bag.x, bag.y, BAG_RADIUS * 0.36, BAG_RADIUS, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.lineWidth = 1;
-    ctx.fillStyle = 'rgba(125, 255, 208, 0.9)';
-    ctx.beginPath();
-    ctx.arc(bag.x, bag.y, 5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.6;
+    drawGlow(glows.teal, bag.x, bag.y, BAG_RADIUS * 2.4);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.save();
+    ctx.translate(bag.x, bag.y);
+    // It rolls with its travel along the floor.
+    ctx.rotate(bag.x / BAG_RADIUS);
+    ctx.drawImage(bagSprite, -BAG_RADIUS, -BAG_RADIUS, BAG_RADIUS * 2, BAG_RADIUS * 2);
+    ctx.restore();
+    ctx.fillStyle = '#7dffd0';
     ctx.font = 'bold 15px Trebuchet MS, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(bag.value, bag.x, bag.y - BAG_RADIUS - 10);
+    ctx.fillText(formatSouls(bag.value), bag.x, bag.y - BAG_RADIUS - 10);
   }
 
   // Each shard is the urn image clipped to one cell of the fracture grid.
@@ -1699,40 +2394,22 @@
       ctx.save();
       ctx.translate(urn.x, urn.y);
       ctx.rotate(urn.a);
-      // The light inside him swells slowly, stronger the closer he is to breaking.
-      if (renderedStage) {
-        ctx.filter = 'brightness(' + (1 + 0.25 * (stress / BREAK_AT) * (0.5 + 0.5 * Math.sin(now / 450))).toFixed(3) + ')';
-      }
       ctx.drawImage(crackCanvas, -urn.w / 2, -urn.h / 2, urn.w, urn.h);
       ctx.restore();
     }
     drawShards(now);
+    if (!urn.broken && now < burnUntil) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.35;
+      drawGlow(glows.orange, urn.x, urn.y, urn.h * 0.7);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
     tomes.forEach(function (tome) { drawTome(tome, now); });
     if (bag) drawBag();
 
-    ctx.globalCompositeOperation = 'lighter';
-    particles.forEach(function (p) {
-      var life = clamp((now - p.born) / p.life, 0, 1);
-      ctx.fillStyle = p.gold
-        ? 'rgba(232, 196, 106, ' + (1 - life) + ')'
-        : 'rgba(255, ' + Math.round(190 - 130 * life) + ', 40, ' + (0.6 * (1 - life)) + ')';
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * (1 - life * 0.6), 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.globalCompositeOperation = 'source-over';
-
-    bombs.forEach(function (bomb) {
-      var lit = Math.floor((now - bomb.born) / 90) % 2 === 0;
-      ctx.fillStyle = '#0b1513';
-      ctx.beginPath();
-      ctx.arc(bomb.x, bomb.y, 14, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#e8c46a';
-      ctx.stroke();
-      ctx.fillStyle = lit ? '#ff6b5e' : '#e8c46a';
-      ctx.fillRect(bomb.x - 2, bomb.y - 22, 4, 8);
-    });
+    drawParticles(now);
+    bombs.forEach(function (bomb) { drawBomb(bomb, now); });
 
     for (var b = blasts.length - 1; b >= 0; b--) {
       // The frame timestamp can be slightly older than a blast created during this frame.
@@ -1745,37 +2422,26 @@
       ctx.stroke();
     }
 
-    ctx.lineWidth = 2;
-    for (var r = tracers.length - 1; r >= 0; r--) {
-      var age = (now - tracers[r].born) / 90;
-      if (age >= 1) { tracers.splice(r, 1); continue; }
-      ctx.strokeStyle = 'rgba(255, 236, 170, ' + (1 - Math.max(0, age)) + ')';
-      ctx.beginPath();
-      ctx.moveTo(tracers[r].x1, tracers[r].y1);
-      ctx.lineTo(tracers[r].x2, tracers[r].y2);
-      ctx.stroke();
-    }
-
-    if (hookLine) {
-      if (urn.broken || now - hookLine.born > 220) {
-        hookLine = null;
-      } else {
-        ctx.strokeStyle = '#e8c46a';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(hookLine.x, hookLine.y);
-        ctx.lineTo(urn.x, urn.y);
-        ctx.stroke();
-      }
-    }
     ctx.lineWidth = 1;
+    drawTracers(now);
+    drawHook(now);
+    drawEffects(now);
+    drawBalls(now);
+    drawKnockdown(now);
+    drawSiphon(now);
 
     if (pointer.down && tool === 'vortex') drawVortex(now);
 
     souls.forEach(function (soul) {
       var pulse = 1 + Math.sin(now / 150 + soul.sway) * 0.08;
-      ctx.globalAlpha = clamp((soul.life - (now - soul.born)) / 1000, 0, 1);
-      ctx.drawImage(soulSprite, soul.x - 26 * pulse, soul.y - 26 * pulse, 52 * pulse, 52 * pulse);
+      var fade = clamp((soul.life - (now - soul.born)) / 1000, 0, 1);
+      // A short wisp trails behind and below each orb.
+      ctx.globalAlpha = fade * 0.4;
+      for (var tail = 1; tail <= 3; tail++) {
+        drawGlow(glows.teal, soul.x - soul.vx * 0.03 * tail, soul.y - soul.vy * 0.03 * tail + 5 * tail, 11 - 2 * tail);
+      }
+      ctx.globalAlpha = fade;
+      ctx.drawImage(soulSprite, soul.x - 36 * pulse, soul.y - 36 * pulse, 72 * pulse, 72 * pulse);
     });
     ctx.globalAlpha = 1;
 
@@ -1814,6 +2480,9 @@
     updateTomes(dt);
     updateBag(now, dt);
     updateShards(now, dt);
+    updateBalls(now, dt);
+    updateKnockdown(now);
+    updateGoose(now, dt);
     updateBurn(now, dt);
     updateParticles(now, dt);
     updateLeak(dt);
@@ -1863,6 +2532,11 @@
     else if (tool === 'puddle') puddlePunch();
     else if (tool === 'sticky') placeBomb();
     else if (tool === 'turret') toggleTurret();
+    else if (tool === 'slam') slamUrn();
+    else if (tool === 'charge') chargeUrn();
+    else if (tool === 'leap') leapUrn();
+    else if (tool === 'knockdown') markKnockdown();
+    else if (tool === 'ball') rollBall();
   }
 
   function releaseRoom() {
@@ -1901,8 +2575,9 @@
     lastFrame = performance.now();
     lastEventAt = lastFrame;
     startedAt = lastFrame;
+    lastTouchedAt = lastFrame;
     requestAnimationFrame(tick);
-    say('idol_waiting', true);
+    say('mix_hello', true);
   }
 
   window.addEventListener('resize', resize);
@@ -1916,11 +2591,12 @@
     if (!started) return;
     if (e.key === 'b' || e.key === 'B') shop.classList.toggle('open');
     else if (e.key === 'Escape') closeShop();
-    else if (e.key.length === 1 && e.key >= '0' && e.key <= '9') selectTool(TOOLS[(Number(e.key) + 9) % 10].id);
+    else if (e.key.length === 1 && e.key >= '0' && e.key <= '9') selectSlot((Number(e.key) + 9) % 10);
   });
   mapButton.addEventListener('click', cycleBackground);
   document.getElementById('shopButton').addEventListener('click', function () { shop.classList.toggle('open'); });
   document.getElementById('shopClose').addEventListener('click', closeShop);
+  document.addEventListener('mousemove', showTip);
   trackButton.addEventListener('click', playNextTrack);
   volumeSlider.addEventListener('input', function () {
     volume = Number(volumeSlider.value);
@@ -1939,6 +2615,7 @@
   urnImg.src = IMG_DIR + 'Soul_Urn_Render.png';
   statueImg.src = IMG_DIR + 'Golden_Statue_Render.png';
   loadGame();
+  recalcItems();
   scoreValue.textContent = formatSouls(score);
   levelBadge.textContent = shatters;
   volumeSlider.value = volume;
@@ -1946,8 +2623,11 @@
   applyBackground();
   renderBuffs();
   refreshHaunted();
+  buildGlows();
   buildSoulSprite();
+  buildBagSprite();
   buildFracture();
+  buildCracks();
   buildToolbar();
   resize();
 })();

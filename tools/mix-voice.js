@@ -23,23 +23,26 @@ const GAP = 0.07;
 //   neither: the whole clip
 // blend (seconds) crossfades two parts into one word instead of leaving a gap between them.
 const RECIPES = [
-  { id: 'ugh', g: 'mix_hurt', t: 'Ughhh.', parts: [{ f: 'idol_waiting_on_bridge_11', seg: 0 }] },
-  { id: 'ow', g: 'mix_hurt', t: 'Ow!', blend: 0.07, parts: [{ f: 'idol_picked_up_on_bridge_07', from: 0, to: 0.3 }, { f: 'idol_waiting_on_bridge_19', from: 0.42, to: 0.84 }] },
-  { id: 'oh', g: 'mix_hurt', t: 'Oh!', parts: [{ f: 'koth_give_up_01', from: 0, to: 0.5 }] },
-  { id: 'hey', g: 'mix_hurt', t: 'Hey!', parts: [{ f: 'idol_dropped_10', seg: 0 }] },
-  { id: 'ah', g: 'mix_hurt', t: 'Ah!', parts: [{ f: 'idol_picked_up_on_bridge_07', from: 0, to: 0.78 }] },
-  { id: 'hmph', g: 'mix_hurt', t: 'Hmph!', parts: [{ f: 'idol_picked_up_on_street_07', from: 0, to: 0.57 }] },
-  { id: 'hey_stop', g: 'mix_hurt', t: 'Hey! Stop shooting me!', parts: [{ f: 'idol_dropped_10', seg: 0 }, { f: 'idol_holder_takes_big_damage_05', from: 0.04, to: 0.83 }] },
-  { id: 'ugh_typical', g: 'mix_hurt', t: 'Ughhh. Typical...', parts: [{ f: 'idol_waiting_on_bridge_11', seg: 0 }, { f: 'idol_dropped_03' }] },
-  { id: 'please_stop', g: 'mix_hurt', t: 'Please. Stop shooting me.', parts: [{ f: 'idol_picked_up_on_street_02', from: 0, to: 0.5 }, { f: 'idol_holder_takes_big_damage_05', from: 0.04, to: 0.83 }] },
-  { id: 'hey_what', g: 'mix_hurt', t: 'Hey! What are you doing?!', parts: [{ f: 'idol_dropped_10', seg: 0 }, { f: 'idol_dropped_04' }] },
-  { id: 'oh_dear_careful', g: 'mix_hurt', t: 'Oh dear! Be careful!', parts: [{ f: 'idol_holder_takes_big_damage_03' }, { f: 'idol_holder_takes_big_damage_01', from: 0, to: 0.87 }] },
-  { id: 'careful_delicate', g: 'mix_hurt', t: 'Be careful! I\'m delicate.', parts: [{ f: 'idol_holder_takes_big_damage_01', from: 0, to: 0.87 }, { f: 'holder_stalls_werewolf_02', seg: -1 }] },
-  { id: 'ah_unpleasant', g: 'mix_hurt', t: 'Ah! Well, that was unpleasant.', parts: [{ f: 'idol_picked_up_on_bridge_07', from: 0, to: 0.78 }, { f: 'idol_holder_gets_stunned_05' }] },
+  { id: 'ugh', g: 'mix_hurt_mild', t: 'Ughhh.', parts: [{ f: 'idol_waiting_on_bridge_11', seg: 0 }] },
+  { id: 'ow', g: 'mix_hurt_mild', t: 'Ow!', blend: 0.07, parts: [{ f: 'idol_picked_up_on_bridge_07', from: 0, to: 0.3 }, { f: 'idol_waiting_on_bridge_19', from: 0.42, to: 0.84 }] },
+  { id: 'oh', g: 'mix_hurt_mild', t: 'Oh!', parts: [{ f: 'koth_give_up_01', from: 0, to: 0.5 }] },
+  { id: 'hey', g: 'mix_hurt_mild', t: 'Hey!', parts: [{ f: 'idol_dropped_10', seg: 0 }] },
+  { id: 'ah', g: 'mix_hurt_mild', t: 'Ah!', parts: [{ f: 'idol_picked_up_on_bridge_07', from: 0, to: 0.78 }] },
+  { id: 'hmph', g: 'mix_hurt_mild', t: 'Hmph!', parts: [{ f: 'idol_picked_up_on_street_07', from: 0, to: 0.57 }] },
+  { id: 'hey_stop', g: 'mix_hurt_angry', t: 'Hey! Stop shooting me!', parts: [{ f: 'idol_dropped_10', seg: 0 }, { f: 'idol_holder_takes_big_damage_05', from: 0.04, to: 0.83 }] },
+  { id: 'ugh_typical', g: 'mix_hurt_angry', t: 'Ughhh. Typical...', parts: [{ f: 'idol_waiting_on_bridge_11', seg: 0 }, { f: 'idol_dropped_03' }] },
+  { id: 'please_stop', g: 'mix_hurt_angry', t: 'Please. Stop shooting me.', parts: [{ f: 'idol_picked_up_on_street_02', from: 0, to: 0.5 }, { f: 'idol_holder_takes_big_damage_05', from: 0.04, to: 0.83 }] },
+  { id: 'hey_what', g: 'mix_hurt_angry', t: 'Hey! What are you doing?!', parts: [{ f: 'idol_dropped_10', seg: 0 }, { f: 'idol_dropped_04' }] },
+  { id: 'oh_dear_careful', g: 'mix_hurt_scared', t: 'Oh dear! Be careful!', parts: [{ f: 'idol_holder_takes_big_damage_03' }, { f: 'idol_holder_takes_big_damage_01', from: 0, to: 0.87 }] },
+  { id: 'careful_delicate', g: 'mix_hurt_scared', t: 'Be careful! I\'m delicate.', parts: [{ f: 'idol_holder_takes_big_damage_01', from: 0, to: 0.87 }, { f: 'holder_stalls_werewolf_02', seg: -1 }] },
+  { id: 'ah_unpleasant', g: 'mix_hurt_scared', t: 'Ah! Well, that was unpleasant.', parts: [{ f: 'idol_picked_up_on_bridge_07', from: 0, to: 0.78 }, { f: 'idol_holder_gets_stunned_05' }] },
   { id: 'thats_it_give_up', g: 'mix_break', t: 'That\'s it. I give up!', parts: [{ f: 'koth_give_up_09', seg: 0 }, { f: 'koth_give_up_02' }] },
   { id: 'oh_dear_times_up', g: 'mix_break', t: 'Oh dear! Time\'s up!', parts: [{ f: 'idol_holder_takes_big_damage_03' }, { f: 'koth_give_up_08' }] },
   { id: 'ugh_leaving', g: 'mix_break', t: 'Ughhh. You know what? I\'m leaving.', parts: [{ f: 'idol_waiting_on_bridge_11', seg: 0 }, { f: 'koth_give_up_03', seg: 0 }, { f: 'koth_give_up_09', seg: -1 }] },
-  { id: 'hey_still_full', g: 'mix_break', t: 'Hey! I give up!', parts: [{ f: 'idol_dropped_10', seg: 0 }, { f: 'koth_give_up_02' }] }
+  { id: 'hey_still_full', g: 'mix_break', t: 'Hey! I give up!', parts: [{ f: 'idol_dropped_10', seg: 0 }, { f: 'koth_give_up_02' }] },
+  { id: 'hello', g: 'mix_hello', t: 'Hello?', parts: [{ f: 'idol_waiting_on_bridge_02' }] },
+  { id: 'ah_hello', g: 'mix_hello', t: 'Ah! Hello?', parts: [{ f: 'idol_picked_up_on_bridge_07', from: 0, to: 0.78 }, { f: 'idol_waiting_on_bridge_02' }] },
+  { id: 'hey_hello', g: 'mix_hello', t: 'Hey! Hello?!', parts: [{ f: 'idol_dropped_10', seg: 0 }, { f: 'idol_waiting_in_street_06', seg: 0 }] }
 ];
 
 function getSourcePath(name) {

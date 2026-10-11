@@ -16,6 +16,9 @@ const IMAGES = [
   'Grapple.png', 'Melee_Charge.png', 'Rapid_Rounds.png', 'Close_Quarters.png', 'Sticky_Bomb.png',
   'Hook.png', 'Puddle_Punch.png', 'Afterburn.png', 'Singularity.png', 'Mini_Turret.png',
   'Golden_Statue_Render.png',
+  'Ground_Strike.png', 'Shoulder_Charge.png', 'Majestic_Leap.png', 'Knockdown.png', 'Siphon_Life.png', 'Lightning_Ball.png',
+  'Monster_Rounds.png', 'Burst_Fire.png', 'Titanic_Magazine.png', 'Sprint_Boots.png', 'Trophy_Collector.png',
+  'Golden_Goose_Egg.png', 'Extra_Spirit.png', 'Improved_Spirit.png', 'Mystic_Reach.png',
   'Powerup_armor_tome.webp', 'Powerup_battle_tome.webp', 'Powerup_cooldown_tome.webp', 'Powerup_damage_tome.webp',
   'Powerup_health_tome.webp', 'Powerup_movespeed_tome.webp', 'Powerup_spirit_tome.webp',
   'Powerup_spiritrange_tome.webp', 'Powerup_spiritresist_tome.webp', 'Powerup_weapon_tome.webp'
