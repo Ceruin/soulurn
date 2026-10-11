@@ -12,14 +12,24 @@ const ASSETS = path.join(__dirname, '..', 'assets');
 const PARALLEL = 6;
 
 const IMAGES = [
-  'Soul_Urn_Render.png', 'Soul_Urn.png', 'Soul_Urn_favored.png',
-  'Souls_icon.png', 'Souls_icon_black.png', 'Souls.png',
-  'Soul_orbs_spawn.png', 'Soul_released.png',
-  '3_lane_update.jpg',
+  'Soul_Urn_Render.png', 'Soul_Urn.png', 'Souls_icon.png',
   'Grapple.png', 'Melee_Charge.png', 'Rapid_Rounds.png', 'Close_Quarters.png', 'Sticky_Bomb.png',
-  'Hook.png', 'Puddle_Punch.png', 'Afterburn.png', 'Singularity.png', 'Mini_Turret.png'
+  'Hook.png', 'Puddle_Punch.png', 'Afterburn.png', 'Singularity.png', 'Mini_Turret.png',
+  'Golden_Statue_Render.png',
+  'Powerup_armor_tome.webp', 'Powerup_battle_tome.webp', 'Powerup_cooldown_tome.webp', 'Powerup_damage_tome.webp',
+  'Powerup_health_tome.webp', 'Powerup_movespeed_tome.webp', 'Powerup_spirit_tome.webp',
+  'Powerup_spiritrange_tome.webp', 'Powerup_spiritresist_tome.webp', 'Powerup_weapon_tome.webp'
 ];
-const MUSIC = ['Music_idol_carry_lp_141bpm.mp3', 'Music_idol_announce.mp3'];
+const MUSIC = [
+  'Music_idol_carry_lp_141bpm.mp3', 'Music_idol_announce.mp3',
+  'Music_title_155bpm.mp3', 'Music_hideout_rem_70bpm.mp3', 'Hotel_music.mp3', 'Waltz.mp3',
+  'Curio_music.mp3', 'Curio_music_02.mp3', 'Vault_music.mp3', 'Music_core_exposed_lp.mp3', 'Music_postgame_155bpm.mp3'
+];
+
+// Map district shots from the City Never Sleeps update page.
+const CNS = 'https://cdn.fastly.steamstatic.com/apps/deadlock/images/react/cityneversleeps/';
+const BACKGROUNDS = ['broadway_01.jpg', 'times_square_05.jpg', 'uptown_01.jpg', 'central_park_02.jpg', 'campus_01.jpg', 'factory_03.jpg']
+  .map(function (name) { return { name: name, url: CNS + name }; });
 
 async function getJson(url) {
   const res = await fetch(url, { headers: HEADERS });
@@ -94,6 +104,7 @@ async function main() {
   failed += await downloadAll(voice, path.join(ASSETS, 'voice'));
   failed += await downloadAll(await resolveUrls(IMAGES), path.join(ASSETS, 'img'));
   failed += await downloadAll(await resolveUrls(MUSIC), path.join(ASSETS, 'music'));
+  failed += await downloadAll(BACKGROUNDS, path.join(ASSETS, 'bg'));
 
   const lines = voice.map(function (v) {
     return {
