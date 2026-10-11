@@ -14,7 +14,10 @@ const PARALLEL = 6;
 const IMAGES = [
   'Soul_Urn_Render.png', 'Soul_Urn.png', 'Soul_Urn_favored.png',
   'Souls_icon.png', 'Souls_icon_black.png', 'Souls.png',
-  'Soul_orbs_spawn.png', 'Soul_released.png'
+  'Soul_orbs_spawn.png', 'Soul_released.png',
+  '3_lane_update.jpg',
+  'Grapple.png', 'Melee_Charge.png', 'Rapid_Rounds.png', 'Close_Quarters.png', 'Sticky_Bomb.png',
+  'Hook.png', 'Puddle_Punch.png', 'Afterburn.png', 'Singularity.png', 'Mini_Turret.png'
 ];
 const MUSIC = ['Music_idol_carry_lp_141bpm.mp3', 'Music_idol_announce.mp3'];
 

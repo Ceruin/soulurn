@@ -8,26 +8,27 @@
 <style>
   :root {
     --bg-deep: #07110f;
-    --bg-glow: #12382f;
     --soul: #7dffd0;
     --gold: #e8c46a;
     --ink: #0b1513;
     --paper: #f3ead2;
     --bad: #ff6b5e;
-    --panel: rgba(7, 17, 15, 0.85);
+    --panel: rgba(7, 17, 15, 0.9);
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    background: radial-gradient(ellipse at 50% 75%, var(--bg-glow), var(--bg-deep) 70%);
+    background:
+      linear-gradient(rgba(5, 12, 11, 0.5), rgba(5, 12, 11, 0.72)),
+      url("assets/img/3_lane_update.jpg") center / cover no-repeat,
+      var(--bg-deep);
     color: var(--paper);
     font-family: Georgia, "Times New Roman", serif;
     overflow: hidden;
     user-select: none;
   }
-  body.glitch { filter: hue-rotate(140deg) contrast(1.6) saturate(2); }
 
-  #room { position: fixed; inset: 0; display: block; touch-action: none; }
+  #room { position: fixed; inset: 0; display: block; touch-action: none; cursor: grab; }
 
   #hud {
     position: fixed; top: 12px; left: 16px;
@@ -42,24 +43,43 @@
   #leakBar { width: 140px; height: 8px; border: 1px solid var(--gold); border-radius: 4px; overflow: hidden; }
   #leakFill { height: 100%; width: 0; background: var(--soul); }
 
+  #menu { position: fixed; top: 12px; right: 16px; display: flex; gap: 8px; }
+  #menu button {
+    cursor: pointer; background: var(--panel); color: var(--gold);
+    border: 1px solid var(--gold); border-radius: 4px;
+    font: inherit; font-size: 13px; padding: 6px 10px;
+  }
+  #menu button:hover { background: rgba(232, 196, 106, 0.2); }
+  #menu button.warn { color: var(--bad); border-color: var(--bad); }
+
+  #hint {
+    position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%);
+    font-size: 14px; color: var(--paper); opacity: 0.85;
+    background: var(--panel); padding: 4px 12px; border-radius: 12px;
+    pointer-events: none; white-space: nowrap;
+  }
+
   #toolbar {
-    position: fixed; left: 0; right: 0; bottom: 0; height: 72px;
-    display: flex; justify-content: center; align-items: center; gap: 10px;
+    position: fixed; left: 0; right: 0; bottom: 0; height: 92px;
+    display: flex; justify-content: center; align-items: center; gap: 6px;
+    padding: 0 8px; overflow-x: auto;
     background: var(--panel); border-top: 1px solid var(--gold);
   }
   .tool {
-    min-width: 96px; padding: 8px 12px; cursor: pointer;
+    flex: 0 0 auto; width: 78px; height: 76px; padding: 4px 2px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
     background: transparent; color: var(--paper);
-    border: 1px solid var(--gold); border-radius: 6px;
-    font: inherit; font-size: 16px; line-height: 1.2;
+    border: 1px solid rgba(232, 196, 106, 0.5); border-radius: 6px;
+    font: inherit; font-size: 12px; line-height: 1.15;
   }
-  .tool small { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: var(--gold); }
-  .tool small img { height: 14px; }
+  .tool .icon { height: 30px; width: 30px; object-fit: contain; }
+  .tool small { display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--gold); }
+  .tool small img { height: 12px; }
   .tool:hover { background: rgba(232, 196, 106, 0.15); }
-  .tool.selected { background: var(--gold); color: var(--ink); }
-  .tool.selected small { color: var(--ink); }
-  .tool.locked { opacity: 0.55; }
-  .tool.locked.affordable { opacity: 1; border-color: var(--soul); }
+  .tool.selected { border: 2px solid var(--gold); background: rgba(232, 196, 106, 0.28); }
+  .tool.locked .icon, .tool.locked .name { opacity: 0.4; }
+  .tool.locked.affordable { border-color: var(--soul); }
+  .tool.locked.affordable small { color: var(--soul); }
   .tool.nope { animation: nope 0.3s linear; border-color: var(--bad); }
 
   #bubble {
@@ -74,11 +94,11 @@
 
   #start {
     position: fixed; inset: 0; z-index: 10;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
     background: rgba(4, 10, 9, 0.9); cursor: pointer; text-align: center; padding: 16px;
   }
   #start h1 { margin: 0; font-size: clamp(30px, 6vw, 60px); color: var(--gold); letter-spacing: 3px; }
-  #start p { margin: 0; font-size: 19px; opacity: 0.85; }
+  #start p { margin: 0; font-size: 18px; opacity: 0.85; }
   #start .go { color: var(--soul); text-shadow: 0 0 12px var(--soul); animation: bob 1.2s ease-in-out infinite; }
 
   @keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
@@ -91,16 +111,23 @@
 
 <div id="hud">
   <div id="score"><img src="assets/img/Souls_icon.png" alt="Souls"><span id="scoreValue">0</span></div>
-  <div id="leakRow"><span id="leakLabel">Leak 0%</span><div id="leakBar"><div id="leakFill"></div></div></div>
+  <div id="leakRow"><span id="leakLabel">Cracked 0%</span><div id="leakBar"><div id="leakFill"></div></div></div>
+</div>
+
+<div id="menu">
+  <button id="musicToggle" type="button">Music: on</button>
+  <button id="resetButton" type="button">Reset</button>
 </div>
 
 <div id="bubble"></div>
+<div id="hint"></div>
 <div id="toolbar"></div>
 
 <div id="start">
   <h1>INTERACTIVE URN</h1>
-  <p>Grab him. Throw him. Hit him with things. He leaks.</p>
-  <p>Wave the cursor over loose souls to collect them, then spend them on worse ideas.</p>
+  <p>Drag him around. Throw him. Crack him open with Deadlock weapons.</p>
+  <p>Sweep the cursor over loose souls to bank them, then buy the next weapon.</p>
+  <p>Right-click drag grabs him no matter which weapon is out.</p>
   <p class="go">Click to begin your shift</p>
 </div>
 
@@ -110,73 +137,106 @@
   'use strict';
 
   var VOICE_DIR = 'assets/voice/';
+  var IMG_DIR = 'assets/img/';
+  var SAVE_KEY = 'soulUrnSave';
   var URN_ASPECT = 502 / 1024;
   var HITBOX_SCALE = 0.8;
-  var FLOOR_PAD = 96;
+  var GRAB_PAD = 1.25;
+  var FLOOR_PAD = 116;
 
   var GRAVITY = 2200;
   var RESTITUTION = 0.45;
   var FLOOR_FRICTION = 4;
   var MAX_SPEED = 3200;
-  var GRAB_STIFFNESS = 18;
+  var GRAB_STIFFNESS = 22;
   var UPRIGHT_SPRING = 40;
   var UPRIGHT_DAMPING = 6;
 
   var IMPACT_MIN_SPEED = 400;
   var IMPACT_SPEED_PER_DAMAGE = 80;
-  var TALK_DAMAGE = 5;
+  var TALK_DAMAGE = 6;
+  var SHAKE_MIN_DAMAGE = 10;
+  var MAX_SHAKE = 7;
   var MAX_LEAK = 40;
   var LEAK_DECAY = 2;
   var LEAK_SOULS_PER_SEC = 0.35;
   var BURST_SOULS_PER_DAMAGE = 0.6;
-  var MAX_SOULS = 160;
+  var MAX_CRACKS = 16;
+  var SPILL_SOULS = 25;
+  var SPILL_COOLDOWN_MS = 8000;
+  var MAX_SOULS = 180;
   var SOUL_LIFE_MS = 7000;
   var SOUL_COLLECT_RADIUS = 46;
   var SOUL_RISE_SPEED = -70;
 
-  var PUNCH_DAMAGE = 6;
-  var PUNCH_FORCE = 950;
-  var BRICK_DAMAGE = 8;
-  var BRICK_SPEED = 1500;
-  var BRICK_GRAVITY = 600;
-  var BOMB_FUSE_MS = 1400;
+  var LIGHT_MELEE = { damage: 6, force: 950 };
+  var HEAVY_MELEE = { damage: 14, force: 2000 };
+  var HEAVY_CHARGE_MS = 400;
+  var SMG = { intervalMs: 70, pellets: 1, spread: 0.035, damage: 0.8, force: 60 };
+  var SHOTGUN = { intervalMs: 450, pellets: 8, spread: 0.13, damage: 1.6, force: 170 };
+  var BOMB_FUSE_MS = 1600;
   var BOMB_RADIUS = 440;
   var BOMB_DAMAGE = 30;
   var BOMB_FORCE = 1900;
   var MAX_BOMBS = 5;
+  var HOOK_SPEED = 2600;
+  var HOOK_DAMAGE = 3;
+  var PUDDLE_REACH = 220;
+  var PUDDLE_LAUNCH = 2300;
+  var PUDDLE_DAMAGE = 9;
+  var FLAME_REACH = 0.9;
+  var BURN_MS = 4000;
+  var BURN_DAMAGE_PER_SEC = 4;
+  var VORTEX_RADIUS = 520;
+  var VORTEX_PULL = 5200;
+  var VORTEX_CORE = 110;
+  var VORTEX_DAMAGE_PER_SEC = 3;
+  var VORTEX_SOUL_PULL = 1800;
+  var MAX_TURRETS = 3;
+  var TURRET_INTERVAL_MS = 600;
+  var TURRET_DAMAGE = 1.5;
+  var MAX_PARTICLES = 300;
 
   var IDLE_TALK_MS = 7000;
   var HELD_TALK_MS = 8000;
   var MILESTONE_SOULS = 1000;
-
-  var BASE_RATE = 0.9;
-  var GLITCH_RATES = [0.3, 0.45, 0.6, 1.5, 2.2];
+  var SAVE_INTERVAL_MS = 2000;
 
   var TOOLS = [
-    { id: 'hand', name: 'Hand', cost: 0 },
-    { id: 'punch', name: 'Punch', cost: 0 },
-    { id: 'brick', name: 'Brick', cost: 300 },
-    { id: 'bomb', name: 'Bomb', cost: 1500 }
+    { id: 'hand', name: 'Hand', cost: 0, icon: 'Grapple.png', hint: 'Drag the urn around and throw him.' },
+    { id: 'melee', name: 'Melee', cost: 0, icon: 'Melee_Charge.png', hint: 'Click him for a light melee. Hold, then release, for a heavy melee.' },
+    { id: 'smg', name: 'SMG', cost: 200, icon: 'Rapid_Rounds.png', hint: 'Hold to spray bullets at the cursor.' },
+    { id: 'shotgun', name: 'Shotgun', cost: 500, icon: 'Close_Quarters.png', hint: 'Click to blast a spread of pellets.' },
+    { id: 'hook', name: 'Hook', cost: 600, icon: 'Hook.png', hint: 'Click anywhere to yank him to the cursor.' },
+    { id: 'puddle', name: 'Puddle Punch', cost: 700, icon: 'Puddle_Punch.png', hint: 'Click under him to punch him up off the floor.' },
+    { id: 'sticky', name: 'Sticky Bomb', cost: 800, icon: 'Sticky_Bomb.png', hint: 'Click him to stick a bomb on, or drop one anywhere.' },
+    { id: 'fire', name: 'Afterburn', cost: 1200, icon: 'Afterburn.png', hint: 'Hold near him to set him on fire.' },
+    { id: 'turret', name: 'Mini Turret', cost: 2000, icon: 'Mini_Turret.png', hint: 'Click the floor to place a turret (max 3). Click a turret to remove it.' },
+    { id: 'vortex', name: 'Singularity', cost: 2500, icon: 'Singularity.png', hint: 'Hold to pull him and every loose soul into the cursor.' }
   ];
 
   var canvas = document.getElementById('room');
   var ctx = canvas.getContext('2d');
   var bubble = document.getElementById('bubble');
+  var hint = document.getElementById('hint');
   var scoreValue = document.getElementById('scoreValue');
   var leakLabel = document.getElementById('leakLabel');
   var leakFill = document.getElementById('leakFill');
   var toolbar = document.getElementById('toolbar');
+  var musicToggle = document.getElementById('musicToggle');
+  var resetButton = document.getElementById('resetButton');
   var startOverlay = document.getElementById('start');
 
   var urnImg = new Image();
-  urnImg.src = 'assets/img/Soul_Urn_Render.png';
   var soulImg = new Image();
-  soulImg.src = 'assets/img/Souls_icon.png';
+  var crackCanvas = document.createElement('canvas');
+  var crackCtx = crackCanvas.getContext('2d');
 
   var announce = new Audio('assets/music/Music_idol_announce.mp3');
   var music = new Audio('assets/music/Music_idol_carry_lp_141bpm.mp3');
   music.loop = true;
-  music.volume = 0.45;
+  music.volume = 0.4;
+  announce.volume = 0.5;
   // Pitch-bending via playbackRate also works when the page is opened from file://,
   // where Web Audio treats local media as cross-origin and outputs silence.
   music.preservesPitch = false;
@@ -185,38 +245,75 @@
   var height = 0;
   var floorY = 0;
   var urnPlaced = false;
+  var started = false;
 
-  var urn = { x: 0, y: 0, vx: 0, vy: 0, a: 0, va: 0, w: 0, h: 0, grabbed: false, grabDx: 0, grabDy: 0, grabbedAt: 0 };
-  var pointer = { x: -999, y: -999 };
+  var urn = { x: 0, y: 0, vx: 0, vy: 0, a: 0, va: 0, w: 0, h: 0, grabbed: false, onFloor: false, grabDx: 0, grabDy: 0, grabbedAt: 0 };
+  var pointer = { x: -999, y: -999, down: false };
   var souls = [];
-  var bricks = [];
+  var cracks = [];
+  var crackDirty = true;
   var bombs = [];
   var blasts = [];
+  var tracers = [];
+  var particles = [];
+  var turrets = [];
   var texts = [];
+  var hookLine = null;
+  var gooFist = null;
+  var charge = null;
 
   var score = 0;
   var nextMilestone = MILESTONE_SOULS;
   var leak = 0;
   var soulDebt = 0;
+  var painBank = 0;
   var shake = 0;
+  var burnUntil = 0;
+  var spillReadyAt = 0;
+  var lastShotAt = 0;
   var tool = 'hand';
-  var owned = { hand: true, punch: true };
+  var owned = { hand: true, melee: true };
   var toolButtons = {};
 
   var voice = null;
+  var musicOn = true;
   var bubbleTimer = 0;
+  var resetTimer = 0;
   var lastEventAt = 0;
   var lastHeldTalkAt = 0;
+  var lastSaveAt = 0;
+  var saveDirty = false;
   var idleTalks = 0;
-
   var lastFrame = 0;
-  var glitchUntil = 0;
-  var glitchRate = 1;
-  var nextGlitchAt = 0;
 
   function rand(min, max) { return min + Math.random() * (max - min); }
   function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  // ---- Save ----
+
+  function loadGame() {
+    try {
+      var save = JSON.parse(localStorage.getItem(SAVE_KEY));
+      if (!save) return;
+      score = save.score || 0;
+      nextMilestone = (Math.floor(score / MILESTONE_SOULS) + 1) * MILESTONE_SOULS;
+      (save.owned || []).forEach(function (id) { owned[id] = true; });
+    } catch (err) {
+      // Private windows can block storage; the toy still works without a save.
+    }
+  }
+
+  function saveGame() {
+    saveDirty = false;
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ score: score, owned: Object.keys(owned) }));
+    } catch (err) {
+      // See loadGame.
+    }
+  }
+
+  // ---- Geometry ----
 
   function resize() {
     var dpr = window.devicePixelRatio || 1;
@@ -228,6 +325,7 @@
     floorY = height - FLOOR_PAD;
     urn.h = clamp(height * 0.34, 140, 360);
     urn.w = urn.h * URN_ASPECT;
+    crackDirty = true;
     // A background tab can load with a zero-size window, so wait for a real size.
     if (!urnPlaced && width > 0 && height > 0) {
       urnPlaced = true;
@@ -236,23 +334,18 @@
     }
   }
 
-  function toUrnLocal(x, y) {
-    var dx = x - urn.x;
-    var dy = y - urn.y;
-    var c = Math.cos(-urn.a);
-    var s = Math.sin(-urn.a);
-    return { x: dx * c - dy * s, y: dx * s + dy * c };
+  function rotate(x, y, angle) {
+    var c = Math.cos(angle);
+    var s = Math.sin(angle);
+    return { x: x * c - y * s, y: x * s + y * c };
   }
 
-  function fromUrnLocal(lx, ly) {
-    var c = Math.cos(urn.a);
-    var s = Math.sin(urn.a);
-    return { x: lx * c - ly * s, y: lx * s + ly * c };
-  }
+  function toUrnLocal(x, y) { return rotate(x - urn.x, y - urn.y, -urn.a); }
+  function fromUrnLocal(lx, ly) { return rotate(lx, ly, urn.a); }
 
-  function checkInsideUrn(x, y) {
+  function checkInsideUrn(x, y, pad) {
     var local = toUrnLocal(x, y);
-    return Math.abs(local.x) < urn.w * HITBOX_SCALE / 2 && Math.abs(local.y) < urn.h / 2;
+    return Math.abs(local.x) < urn.w * HITBOX_SCALE / 2 * pad && Math.abs(local.y) < urn.h / 2 * pad;
   }
 
   function getUrnExtents() {
@@ -260,6 +353,29 @@
     var s = Math.abs(Math.sin(urn.a));
     var w = urn.w * HITBOX_SCALE;
     return { x: (c * w + s * urn.h) / 2, y: (s * w + c * urn.h) / 2 };
+  }
+
+  // Distance along a ray to the urn's hit box, or -1 on a miss.
+  function castRayAtUrn(ox, oy, dx, dy) {
+    var o = toUrnLocal(ox, oy);
+    var d = rotate(dx, dy, -urn.a);
+    var half = [urn.w * HITBOX_SCALE / 2, urn.h / 2];
+    var origin = [o.x, o.y];
+    var dir = [d.x, d.y];
+    var near = -Infinity;
+    var far = Infinity;
+    for (var axis = 0; axis < 2; axis++) {
+      if (Math.abs(dir[axis]) < 1e-6) {
+        if (Math.abs(origin[axis]) > half[axis]) return -1;
+        continue;
+      }
+      var t1 = (-half[axis] - origin[axis]) / dir[axis];
+      var t2 = (half[axis] - origin[axis]) / dir[axis];
+      near = Math.max(near, Math.min(t1, t2));
+      far = Math.min(far, Math.max(t1, t2));
+    }
+    if (far < Math.max(near, 0)) return -1;
+    return Math.max(near, 0);
   }
 
   // ---- Voice ----
@@ -290,15 +406,88 @@
     bubble.style.transform = 'translate(' + (x - half) + 'px,' + y + 'px)';
   }
 
+  // ---- Cracks ----
+
+  // Crack points are stored in urn-height units so they survive a window resize.
+  function buildCrack(u, v) {
+    var branches = [];
+    var count = 2 + Math.floor(Math.random() * 2);
+    for (var b = 0; b < count; b++) {
+      var angle = rand(0, Math.PI * 2);
+      var x = u;
+      var y = v;
+      var points = [[x, y]];
+      var segments = 3 + Math.floor(Math.random() * 3);
+      for (var s = 0; s < segments; s++) {
+        angle += rand(-0.9, 0.9);
+        var length = rand(0.035, 0.075);
+        x += Math.cos(angle) * length;
+        y += Math.sin(angle) * length;
+        points.push([x, y]);
+      }
+      branches.push(points);
+    }
+    return { u: u, v: v, branches: branches };
+  }
+
+  function addCracks(worldX, worldY) {
+    var target = Math.ceil(leak / MAX_LEAK * MAX_CRACKS);
+    if (cracks.length >= target) return;
+    var local = toUrnLocal(worldX, worldY);
+    var u = clamp(local.x / urn.h, -0.17, 0.17);
+    var v = clamp(local.y / urn.h, -0.4, 0.36);
+    while (cracks.length < target) {
+      cracks.push(buildCrack(clamp(u + rand(-0.04, 0.04), -0.19, 0.19), clamp(v + rand(-0.06, 0.06), -0.42, 0.38)));
+    }
+    crackDirty = true;
+  }
+
+  function strokeCracks(scale) {
+    crackCtx.beginPath();
+    cracks.forEach(function (crack) {
+      crack.branches.forEach(function (points) {
+        points.forEach(function (p, i) {
+          var x = (p[0] * urn.h + urn.w / 2) * scale;
+          var y = (p[1] * urn.h + urn.h / 2) * scale;
+          if (i === 0) crackCtx.moveTo(x, y); else crackCtx.lineTo(x, y);
+        });
+      });
+    });
+    crackCtx.stroke();
+  }
+
+  // The urn is pre-rendered with its cracks so the lines stay clipped to his silhouette.
+  function renderUrn() {
+    if (!urnImg.complete || !urnImg.naturalWidth || !urn.w) return;
+    var scale = window.devicePixelRatio || 1;
+    crackCanvas.width = Math.ceil(urn.w * scale);
+    crackCanvas.height = Math.ceil(urn.h * scale);
+    crackCtx.drawImage(urnImg, 0, 0, crackCanvas.width, crackCanvas.height);
+    crackDirty = false;
+    if (!cracks.length) return;
+    crackCtx.globalCompositeOperation = 'source-atop';
+    crackCtx.lineCap = 'round';
+    crackCtx.lineJoin = 'round';
+    crackCtx.strokeStyle = '#04130f';
+    crackCtx.lineWidth = 3.4 * scale;
+    strokeCracks(scale);
+    crackCtx.shadowColor = '#7dffd0';
+    crackCtx.shadowBlur = 6 * scale;
+    crackCtx.strokeStyle = '#b8ffe8';
+    crackCtx.lineWidth = 1.2 * scale;
+    strokeCracks(scale);
+  }
+
   // ---- Souls ----
 
   function spawnSoul() {
     if (souls.length >= MAX_SOULS) return;
-    var crack = fromUrnLocal(rand(-urn.w / 3, urn.w / 3), rand(-urn.h / 2.2, urn.h / 3));
+    var source = cracks.length ? pick(cracks) : { u: 0, v: -0.42 };
+    var origin = fromUrnLocal(source.u * urn.h, source.v * urn.h);
     var angle = rand(0, Math.PI * 2);
     var speed = rand(120, 420);
     souls.push({
-      x: urn.x + crack.x, y: urn.y + crack.y,
+      x: urn.x + origin.x, y: urn.y + origin.y,
       vx: Math.cos(angle) * speed + urn.vx * 0.3,
       vy: Math.sin(angle) * speed - 200 + urn.vy * 0.3,
       born: performance.now(),
@@ -313,6 +502,7 @@
 
   function addScore(amount) {
     score += amount;
+    saveDirty = true;
     scoreValue.textContent = score;
     refreshTools();
     if (score >= nextMilestone) {
@@ -322,8 +512,16 @@
   }
 
   function updateSouls(now, dt) {
+    var pulling = pointer.down && tool === 'vortex';
     for (var i = souls.length - 1; i >= 0; i--) {
       var soul = souls[i];
+      var dx = pointer.x - soul.x;
+      var dy = pointer.y - soul.y;
+      var distance = Math.sqrt(dx * dx + dy * dy) || 1;
+      if (pulling) {
+        soul.vx += dx / distance * VORTEX_SOUL_PULL * dt;
+        soul.vy += dy / distance * VORTEX_SOUL_PULL * dt;
+      }
       soul.vx *= 1 - 2 * dt;
       soul.vy += (SOUL_RISE_SPEED - soul.vy) * 2 * dt;
       soul.x += (soul.vx + Math.sin(now / 400 + soul.sway) * 30) * dt;
@@ -331,9 +529,7 @@
       soul.x = clamp(soul.x, 14, width - 14);
       soul.y = Math.min(soul.y, floorY - 10);
 
-      var dx = soul.x - pointer.x;
-      var dy = soul.y - pointer.y;
-      if (dx * dx + dy * dy < SOUL_COLLECT_RADIUS * SOUL_COLLECT_RADIUS) {
+      if (distance < SOUL_COLLECT_RADIUS) {
         addScore(soul.value);
         addText(soul.x, soul.y, '+' + soul.value, '#7dffd0');
         souls.splice(i, 1);
@@ -345,25 +541,57 @@
 
   // ---- Urn ----
 
-  function damageUrn(amount, voiceGroup) {
+  function damageUrn(amount, worldX, worldY, voiceGroup) {
+    var now = performance.now();
     leak = Math.min(MAX_LEAK, leak + amount);
     var burst = Math.round(amount * BURST_SOULS_PER_DAMAGE);
     for (var i = 0; i < burst; i++) spawnSoul();
-    shake = Math.max(shake, amount);
-    lastEventAt = performance.now();
-    if (amount >= TALK_DAMAGE) say(voiceGroup || pick(['idol_holder_gets_stunned', 'idol_holder_takes_big_damage']), false);
+    if (amount >= SHAKE_MIN_DAMAGE) shake = MAX_SHAKE;
+    lastEventAt = now;
+    addCracks(worldX, worldY);
+
+    if (leak >= MAX_LEAK && now > spillReadyAt) {
+      spillReadyAt = now + SPILL_COOLDOWN_MS;
+      for (var s = 0; s < SPILL_SOULS; s++) spawnSoul();
+      addText(urn.x, urn.y - urn.h / 2, 'SPILL!', '#e8c46a');
+      say('koth_give_up', true);
+      return;
+    }
+    painBank += amount;
+    if (painBank >= TALK_DAMAGE) {
+      painBank = 0;
+      say(voiceGroup || pick(['idol_holder_gets_stunned', 'idol_holder_takes_big_damage']), false);
+    }
   }
 
-  function hitSurface(speed) {
+  function hitSurface(speed, contactX, contactY) {
     if (speed < IMPACT_MIN_SPEED) return;
-    damageUrn((speed - IMPACT_MIN_SPEED) / IMPACT_SPEED_PER_DAMAGE + 1);
+    damageUrn((speed - IMPACT_MIN_SPEED) / IMPACT_SPEED_PER_DAMAGE + 1, contactX, contactY);
+  }
+
+  function grabUrn() {
+    urn.grabbed = true;
+    urn.grabDx = pointer.x - urn.x;
+    urn.grabDy = pointer.y - urn.y;
+    urn.grabbedAt = performance.now();
+    lastEventAt = urn.grabbedAt;
+    canvas.style.cursor = 'grabbing';
+    say('idol_picked_up', false);
   }
 
   function releaseUrn() {
     if (!urn.grabbed) return;
     urn.grabbed = false;
     lastEventAt = performance.now();
+    refreshCursor();
     if (Math.abs(urn.vx) + Math.abs(urn.vy) < 300) say('idol_dropped', false);
+  }
+
+  function pushUrn(dx, dy, force, spin) {
+    urn.grabbed = false;
+    urn.vx += dx * force;
+    urn.vy += dy * force;
+    urn.va += spin;
   }
 
   function updateUrn(now, dt) {
@@ -387,15 +615,19 @@
     }
 
     urn.vy += GRAVITY * dt;
+    urn.vx = clamp(urn.vx, -MAX_SPEED, MAX_SPEED);
+    urn.vy = clamp(urn.vy, -MAX_SPEED, MAX_SPEED);
     urn.x += urn.vx * dt;
     urn.y += urn.vy * dt;
     urn.a += urn.va * dt;
     extents = getUrnExtents();
+    urn.onFloor = false;
 
     if (urn.y + extents.y > floorY) {
       urn.y = floorY - extents.y;
+      urn.onFloor = true;
       if (urn.vy > 0) {
-        hitSurface(urn.vy);
+        hitSurface(urn.vy, urn.x, floorY);
         urn.va += urn.vx * 0.004;
         urn.vy = urn.vy > 160 ? -urn.vy * RESTITUTION : 0;
       }
@@ -407,15 +639,15 @@
     }
     if (urn.y - extents.y < 0) {
       urn.y = extents.y;
-      if (urn.vy < 0) { hitSurface(-urn.vy); urn.vy = -urn.vy * RESTITUTION; }
+      if (urn.vy < 0) { hitSurface(-urn.vy, urn.x, 0); urn.vy = -urn.vy * RESTITUTION; }
     }
     if (urn.x - extents.x < 0) {
       urn.x = extents.x;
-      if (urn.vx < 0) { hitSurface(-urn.vx); urn.vx = -urn.vx * RESTITUTION; urn.va += urn.vy * 0.003; }
+      if (urn.vx < 0) { hitSurface(-urn.vx, 0, urn.y); urn.vx = -urn.vx * RESTITUTION; urn.va += urn.vy * 0.003; }
     }
     if (urn.x + extents.x > width) {
       urn.x = width - extents.x;
-      if (urn.vx > 0) { hitSurface(urn.vx); urn.vx = -urn.vx * RESTITUTION; urn.va -= urn.vy * 0.003; }
+      if (urn.vx > 0) { hitSurface(urn.vx, width, urn.y); urn.vx = -urn.vx * RESTITUTION; urn.va -= urn.vy * 0.003; }
     }
 
     if (now - lastEventAt > IDLE_TALK_MS) {
@@ -429,91 +661,84 @@
     leak = Math.max(0, leak - LEAK_DECAY * dt);
     soulDebt += leak * LEAK_SOULS_PER_SEC * dt;
     while (soulDebt >= 1) { soulDebt--; spawnSoul(); }
+    // Cracks seal up oldest-first as he recovers.
+    if (cracks.length > Math.ceil(leak / MAX_LEAK * MAX_CRACKS)) {
+      cracks.shift();
+      crackDirty = true;
+    }
     var percent = Math.round(leak / MAX_LEAK * 100);
-    leakLabel.textContent = 'Leak ' + percent + '%';
+    leakLabel.textContent = 'Cracked ' + percent + '%';
     leakFill.style.width = percent + '%';
   }
 
-  // ---- Tools ----
+  // ---- Weapons ----
 
-  function punchUrn(x, y) {
-    var dx = urn.x - x;
-    var dy = urn.y - y;
+  function punchUrn(strike) {
+    var dx = urn.x - pointer.x;
+    var dy = urn.y - pointer.y;
     var length = Math.sqrt(dx * dx + dy * dy) || 1;
-    urn.vx += dx / length * PUNCH_FORCE;
-    urn.vy += dy / length * PUNCH_FORCE - 350;
-    urn.va += rand(-9, 9);
-    addText(x, y, 'POW', '#e8c46a');
-    damageUrn(PUNCH_DAMAGE);
+    pushUrn(dx / length, dy / length, strike.force, rand(-9, 9));
+    urn.vy -= strike.force * 0.35;
+    addText(pointer.x, pointer.y, strike === HEAVY_MELEE ? 'HEAVY!' : 'POW', '#e8c46a');
+    damageUrn(strike.damage, pointer.x, pointer.y);
   }
 
-  function throwBrick(x, y) {
-    // Thrown from the wall farther from him so there is room to aim.
-    var startX = urn.x < width / 2 ? width + 20 : -20;
-    var startY = floorY * 0.4;
-    var dx = x - startX;
-    var dy = y - startY;
-    var length = Math.sqrt(dx * dx + dy * dy) || 1;
-    bricks.push({
-      x: startX, y: startY,
-      vx: dx / length * BRICK_SPEED, vy: dy / length * BRICK_SPEED,
-      a: 0, va: rand(-12, 12), spent: false, born: performance.now()
-    });
-  }
-
-  function updateBricks(now, dt) {
-    for (var i = bricks.length - 1; i >= 0; i--) {
-      var brick = bricks[i];
-      brick.vy += BRICK_GRAVITY * dt;
-      brick.x += brick.vx * dt;
-      brick.y += brick.vy * dt;
-      brick.a += brick.va * dt;
-      if (!brick.spent && checkInsideUrn(brick.x, brick.y)) {
-        brick.spent = true;
-        urn.grabbed = false;
-        urn.vx += brick.vx * 0.55;
-        urn.vy += brick.vy * 0.55 - 200;
-        urn.va += rand(-10, 10);
-        brick.vx *= -0.3;
-        brick.vy = -300;
-        damageUrn(BRICK_DAMAGE);
-      }
-      if (brick.y > floorY - 8 && brick.vy > 0) {
-        brick.y = floorY - 8;
-        brick.vy *= -0.4;
-        brick.vx *= 0.6;
-        brick.spent = true;
-      }
-      if (now - brick.born > 3500) bricks.splice(i, 1);
+  function fireGun(gun, now) {
+    if (now - lastShotAt < gun.intervalMs) return;
+    lastShotAt = now;
+    var originX = width / 2;
+    var originY = height - 92;
+    var aim = Math.atan2(pointer.y - originY, pointer.x - originX);
+    for (var i = 0; i < gun.pellets; i++) {
+      var angle = aim + rand(-gun.spread, gun.spread);
+      shootRay(originX, originY, Math.cos(angle), Math.sin(angle), gun.damage, gun.force);
     }
   }
 
-  function placeBomb(x, y) {
+  function shootRay(ox, oy, dx, dy, damage, force) {
+    var distance = castRayAtUrn(ox, oy, dx, dy);
+    var reach = distance < 0 ? 2400 : distance;
+    var endX = ox + dx * reach;
+    var endY = oy + dy * reach;
+    tracers.push({ x1: ox, y1: oy, x2: endX, y2: endY, born: performance.now() });
+    if (distance < 0) return;
+    pushUrn(dx, dy, force, rand(-1, 1) * force * 0.01);
+    damageUrn(damage, endX, endY);
+  }
+
+  function placeBomb() {
     if (bombs.length >= MAX_BOMBS) return;
-    bombs.push({ x: x, y: Math.min(y, floorY - 14), vy: 0, born: performance.now() });
+    var bomb = { x: pointer.x, y: Math.min(pointer.y, floorY - 14), vy: 0, born: performance.now(), stuck: null };
+    if (checkInsideUrn(pointer.x, pointer.y, 1)) bomb.stuck = toUrnLocal(pointer.x, pointer.y);
+    bombs.push(bomb);
   }
 
   function explodeBomb(bomb) {
     blasts.push({ x: bomb.x, y: bomb.y, born: performance.now() });
-    shake = Math.max(shake, 18);
     var dx = urn.x - bomb.x;
     var dy = urn.y - bomb.y;
     var distance = Math.sqrt(dx * dx + dy * dy) || 1;
     if (distance > BOMB_RADIUS) return;
     var power = 1 - distance / BOMB_RADIUS;
-    urn.grabbed = false;
-    urn.vx += dx / distance * BOMB_FORCE * power;
-    urn.vy += dy / distance * BOMB_FORCE * power - 600 * power;
-    urn.va += rand(-14, 14) * power;
-    damageUrn(BOMB_DAMAGE * power, power > 0.5 ? 'koth_give_up' : null);
+    // A bomb stuck dead centre has no direction, so it throws him straight up.
+    if (distance < 20) { dx = rand(-0.4, 0.4); dy = -1; distance = 1; }
+    pushUrn(dx / distance, dy / distance, BOMB_FORCE * power, rand(-14, 14) * power);
+    urn.vy -= 600 * power;
+    damageUrn(BOMB_DAMAGE * power, bomb.x, bomb.y);
   }
 
   function updateBombs(now, dt) {
     for (var i = bombs.length - 1; i >= 0; i--) {
       var bomb = bombs[i];
-      bomb.vy += GRAVITY * dt;
-      bomb.y += bomb.vy * dt;
-      if (bomb.y > floorY - 14) { bomb.y = floorY - 14; bomb.vy *= -0.3; }
+      if (bomb.stuck) {
+        var offset = fromUrnLocal(bomb.stuck.x, bomb.stuck.y);
+        bomb.x = urn.x + offset.x;
+        bomb.y = urn.y + offset.y;
+      } else {
+        bomb.vy += GRAVITY * dt;
+        bomb.y += bomb.vy * dt;
+        if (bomb.y > floorY - 14) { bomb.y = floorY - 14; bomb.vy *= -0.3; }
+      }
       if (now - bomb.born > BOMB_FUSE_MS) {
         bombs.splice(i, 1);
         explodeBomb(bomb);
@@ -521,21 +746,144 @@
     }
   }
 
+  function throwHook() {
+    var dx = pointer.x - urn.x;
+    var dy = pointer.y - urn.y;
+    var distance = Math.sqrt(dx * dx + dy * dy);
+    hookLine = { x: pointer.x, y: pointer.y, born: performance.now() };
+    if (distance < 60) return;
+    urn.grabbed = false;
+    urn.vx = dx / distance * HOOK_SPEED;
+    urn.vy = dy / distance * HOOK_SPEED - 300;
+    urn.va += rand(-6, 6);
+    damageUrn(HOOK_DAMAGE, urn.x, urn.y);
+  }
+
+  function puddlePunch() {
+    gooFist = { x: pointer.x, born: performance.now() };
+    var extents = getUrnExtents();
+    var bottom = urn.y + extents.y;
+    if (Math.abs(urn.x - pointer.x) > extents.x + 50 || bottom < floorY - PUDDLE_REACH) return;
+    urn.grabbed = false;
+    urn.vy = -PUDDLE_LAUNCH;
+    urn.vx += (urn.x - pointer.x) * 5;
+    urn.va += rand(-8, 8);
+    damageUrn(PUDDLE_DAMAGE, urn.x, bottom);
+  }
+
+  function addFlame(x, y, vx, vy) {
+    if (particles.length >= MAX_PARTICLES) return;
+    particles.push({ x: x, y: y, vx: vx, vy: vy, born: performance.now(), life: rand(250, 550), size: rand(8, 18) });
+  }
+
+  function sprayFire(now) {
+    var dx = urn.x - pointer.x;
+    var dy = urn.y - pointer.y;
+    var distance = Math.sqrt(dx * dx + dy * dy) || 1;
+    for (var i = 0; i < 3; i++) {
+      addFlame(pointer.x, pointer.y, dx / distance * 500 + rand(-120, 120), dy / distance * 500 + rand(-120, 120));
+    }
+    if (distance < urn.h * FLAME_REACH) burnUntil = now + BURN_MS;
+  }
+
+  function updateBurn(now, dt) {
+    if (now > burnUntil) return;
+    var spot = fromUrnLocal(rand(-urn.w / 3, urn.w / 3), rand(-urn.h / 2.2, urn.h / 2.4));
+    addFlame(urn.x + spot.x, urn.y + spot.y, rand(-40, 40), rand(-220, -90));
+    damageUrn(BURN_DAMAGE_PER_SEC * dt, urn.x + spot.x, urn.y + spot.y);
+    // Hot floor: he hops around while he is on fire.
+    if (urn.onFloor && Math.random() < 3 * dt) {
+      urn.vy = -520;
+      urn.vx += rand(-260, 260);
+    }
+  }
+
+  function updateParticles(now, dt) {
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy -= 300 * dt;
+      if (now - p.born > p.life) particles.splice(i, 1);
+    }
+  }
+
+  function updateVortex(dt) {
+    var dx = pointer.x - urn.x;
+    var dy = pointer.y - urn.y;
+    var distance = Math.sqrt(dx * dx + dy * dy) || 1;
+    if (distance > VORTEX_RADIUS) return;
+    urn.grabbed = false;
+    var pull = VORTEX_PULL * (1 - distance / VORTEX_RADIUS) + 800;
+    urn.vx += dx / distance * pull * dt;
+    urn.vy += dy / distance * pull * dt - GRAVITY * 0.9 * dt;
+    urn.vx *= 1 - Math.min(1, 1.5 * dt);
+    urn.vy *= 1 - Math.min(1, 1.5 * dt);
+    urn.va += 14 * dt;
+    if (distance < VORTEX_CORE) damageUrn(VORTEX_DAMAGE_PER_SEC * dt, urn.x + rand(-20, 20), urn.y + rand(-40, 40));
+  }
+
+  function toggleTurret() {
+    for (var i = 0; i < turrets.length; i++) {
+      if (Math.abs(turrets[i].x - pointer.x) < 32 && pointer.y > floorY - 70) {
+        turrets.splice(i, 1);
+        return;
+      }
+    }
+    if (turrets.length >= MAX_TURRETS) {
+      addText(pointer.x, pointer.y, 'Max ' + MAX_TURRETS + ' turrets', '#ff6b5e');
+      return;
+    }
+    turrets.push({ x: clamp(pointer.x, 30, width - 30), lastShot: performance.now() });
+  }
+
+  function updateTurrets(now) {
+    turrets.forEach(function (turret) {
+      if (now - turret.lastShot < TURRET_INTERVAL_MS) return;
+      turret.lastShot = now;
+      var originY = floorY - 30;
+      var dx = urn.x + rand(-urn.w / 4, urn.w / 4) - turret.x;
+      var dy = urn.y + rand(-urn.h / 4, urn.h / 4) - originY;
+      var length = Math.sqrt(dx * dx + dy * dy) || 1;
+      shootRay(turret.x, originY, dx / length, dy / length, TURRET_DAMAGE, 90);
+    });
+  }
+
+  function updateHeldWeapons(now, dt) {
+    if (!pointer.down) return;
+    if (tool === 'smg') fireGun(SMG, now);
+    else if (tool === 'fire') sprayFire(now);
+    else if (tool === 'vortex') updateVortex(dt);
+  }
+
+  // ---- Toolbar ----
+
+  function getTool(id) {
+    return TOOLS.filter(function (t) { return t.id === id; })[0];
+  }
+
+  function refreshCursor() {
+    canvas.style.cursor = tool === 'hand' ? 'grab' : 'crosshair';
+  }
+
   function selectTool(id) {
-    var def = TOOLS.filter(function (t) { return t.id === id; })[0];
+    var def = getTool(id);
     if (!owned[id]) {
       if (score < def.cost) {
         var button = toolButtons[id];
         button.classList.remove('nope');
         void button.offsetWidth;
         button.classList.add('nope');
+        hint.textContent = def.name + ' costs ' + def.cost + ' souls. You have ' + score + '.';
         return;
       }
       owned[id] = true;
       addScore(-def.cost);
     }
     tool = id;
+    charge = null;
     releaseUrn();
+    refreshCursor();
     refreshTools();
   }
 
@@ -548,15 +896,19 @@
       button.classList.toggle('affordable', locked && score >= def.cost);
       button.querySelector('small').style.display = locked ? 'flex' : 'none';
     });
+    hint.textContent = getTool(tool).hint;
   }
 
   function buildToolbar() {
     TOOLS.forEach(function (def, index) {
       var button = document.createElement('button');
+      var key = (index + 1) % 10;
       button.type = 'button';
       button.className = 'tool';
-      button.innerHTML = (index + 1) + '. ' + def.name +
-        '<small><img src="assets/img/Souls_icon.png" alt="">Buy ' + def.cost + '</small>';
+      button.title = def.hint;
+      button.innerHTML = '<img class="icon" src="' + IMG_DIR + def.icon + '" alt="">' +
+        '<span class="name">' + key + '. ' + def.name + '</span>' +
+        '<small><img src="' + IMG_DIR + 'Souls_icon.png" alt="">' + def.cost + '</small>';
       button.addEventListener('click', function () { selectTool(def.id); });
       toolbar.appendChild(button);
       toolButtons[def.id] = button;
@@ -566,57 +918,100 @@
 
   // ---- Music ----
 
+  // The music droops and wobbles the more cracked he is; a healthy urn plays it straight.
   function warpMusic(now) {
-    var chaos = 1 + leak / 10;
-    if (now > nextGlitchAt) {
-      nextGlitchAt = now + rand(2500, 9000) / chaos;
-      if (leak > 1) {
-        glitchRate = pick(GLITCH_RATES);
-        glitchUntil = now + rand(120, 400) * chaos;
-        if (Math.random() < 0.5 && music.currentTime > 1) music.currentTime -= rand(0.2, 0.8);
-      }
-    }
-    var glitching = now < glitchUntil;
-    var rate = glitching
-      ? glitchRate
-      : BASE_RATE + Math.sin(now / 900) * 0.06 * chaos + Math.sin(now / 70) * 0.015 * chaos;
-    music.playbackRate = clamp(rate, 0.25, 3);
-    document.body.classList.toggle('glitch', glitching);
+    var damage = leak / MAX_LEAK;
+    music.playbackRate = 1 - 0.14 * damage + Math.sin(now / 600) * 0.035 * damage;
   }
 
   // ---- Drawing ----
+
+  function drawTurret(turret) {
+    var originY = floorY - 30;
+    var angle = Math.atan2(urn.y - originY, urn.x - turret.x);
+    ctx.fillStyle = '#2b3a36';
+    ctx.fillRect(turret.x - 16, floorY - 22, 32, 22);
+    ctx.save();
+    ctx.translate(turret.x, originY);
+    ctx.rotate(angle);
+    ctx.fillStyle = '#e8c46a';
+    ctx.fillRect(0, -4, 30, 8);
+    ctx.restore();
+    ctx.fillStyle = '#4c625c';
+    ctx.beginPath();
+    ctx.arc(turret.x, originY, 11, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawGooFist(now) {
+    var t = (now - gooFist.born) / 320;
+    if (t >= 1) { gooFist = null; return; }
+    var rise = Math.sin(Math.PI * Math.max(0, t)) * PUDDLE_REACH;
+    ctx.fillStyle = 'rgba(170, 220, 120, 0.85)';
+    ctx.beginPath();
+    ctx.moveTo(gooFist.x - 60, floorY);
+    ctx.quadraticCurveTo(gooFist.x - 30, floorY - rise * 0.4, gooFist.x - 34, floorY - rise);
+    ctx.arc(gooFist.x, floorY - rise, 34, Math.PI, 0);
+    ctx.quadraticCurveTo(gooFist.x + 30, floorY - rise * 0.4, gooFist.x + 60, floorY);
+    ctx.fill();
+  }
+
+  function drawVortex(now) {
+    ctx.fillStyle = 'rgba(8, 4, 20, 0.85)';
+    ctx.beginPath();
+    ctx.arc(pointer.x, pointer.y, 42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(170, 130, 255, 0.9)';
+    ctx.lineWidth = 3;
+    for (var ring = 0; ring < 3; ring++) {
+      var spin = now / 180 + ring * 2.1;
+      ctx.beginPath();
+      ctx.arc(pointer.x, pointer.y, 50 + ring * 16, spin, spin + 1.8);
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+  }
 
   function draw(now) {
     ctx.clearRect(0, 0, width, height);
     ctx.save();
     if (shake > 0.5) ctx.translate(rand(-shake, shake), rand(-shake, shake));
 
-    ctx.fillStyle = 'rgba(232, 196, 106, 0.5)';
+    ctx.fillStyle = 'rgba(5, 12, 11, 0.6)';
+    ctx.fillRect(0, floorY, width, height - floorY);
+    ctx.fillStyle = 'rgba(232, 196, 106, 0.6)';
     ctx.fillRect(0, floorY, width, 2);
+
+    turrets.forEach(drawTurret);
+    if (gooFist) drawGooFist(now);
 
     var glow = leak / MAX_LEAK;
     if (glow > 0.02) {
       var gradient = ctx.createRadialGradient(urn.x, urn.y, 0, urn.x, urn.y, urn.h);
-      gradient.addColorStop(0, 'rgba(125, 255, 208, ' + (0.55 * glow) + ')');
+      gradient.addColorStop(0, 'rgba(125, 255, 208, ' + (0.45 * glow) + ')');
       gradient.addColorStop(1, 'rgba(125, 255, 208, 0)');
       ctx.fillStyle = gradient;
       ctx.fillRect(urn.x - urn.h, urn.y - urn.h, urn.h * 2, urn.h * 2);
     }
 
-    ctx.save();
-    ctx.translate(urn.x, urn.y);
-    ctx.rotate(urn.a);
-    ctx.drawImage(urnImg, -urn.w / 2, -urn.h / 2, urn.w, urn.h);
-    ctx.restore();
-
-    ctx.fillStyle = '#a4472f';
-    bricks.forEach(function (brick) {
+    if (crackDirty) renderUrn();
+    if (crackCanvas.width && !crackDirty) {
       ctx.save();
-      ctx.translate(brick.x, brick.y);
-      ctx.rotate(brick.a);
-      ctx.fillRect(-16, -9, 32, 18);
+      ctx.translate(urn.x, urn.y);
+      ctx.rotate(urn.a);
+      ctx.drawImage(crackCanvas, -urn.w / 2, -urn.h / 2, urn.w, urn.h);
       ctx.restore();
+    }
+
+    ctx.globalCompositeOperation = 'lighter';
+    particles.forEach(function (p) {
+      var life = clamp((now - p.born) / p.life, 0, 1);
+      ctx.fillStyle = 'rgba(255, ' + Math.round(190 - 130 * life) + ', 40, ' + (0.6 * (1 - life)) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (1 - life * 0.6), 0, Math.PI * 2);
+      ctx.fill();
     });
+    ctx.globalCompositeOperation = 'source-over';
 
     bombs.forEach(function (bomb) {
       var lit = Math.floor((now - bomb.born) / 90) % 2 === 0;
@@ -640,20 +1035,55 @@
       ctx.arc(blasts[b].x, blasts[b].y, BOMB_RADIUS * t, 0, Math.PI * 2);
       ctx.stroke();
     }
+
+    ctx.lineWidth = 2;
+    for (var r = tracers.length - 1; r >= 0; r--) {
+      var age = (now - tracers[r].born) / 90;
+      if (age >= 1) { tracers.splice(r, 1); continue; }
+      ctx.strokeStyle = 'rgba(255, 236, 170, ' + (1 - Math.max(0, age)) + ')';
+      ctx.beginPath();
+      ctx.moveTo(tracers[r].x1, tracers[r].y1);
+      ctx.lineTo(tracers[r].x2, tracers[r].y2);
+      ctx.stroke();
+    }
+
+    if (hookLine) {
+      if (now - hookLine.born > 220) {
+        hookLine = null;
+      } else {
+        ctx.strokeStyle = '#e8c46a';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(hookLine.x, hookLine.y);
+        ctx.lineTo(urn.x, urn.y);
+        ctx.stroke();
+      }
+    }
     ctx.lineWidth = 1;
 
+    if (pointer.down && tool === 'vortex') drawVortex(now);
+
     souls.forEach(function (soul) {
-      var age = now - soul.born;
       var pulse = 1 + Math.sin(now / 150 + soul.sway) * 0.08;
-      ctx.globalAlpha = clamp((SOUL_LIFE_MS - age) / 1000, 0, 1);
+      ctx.globalAlpha = clamp((SOUL_LIFE_MS - (now - soul.born)) / 1000, 0, 1);
       ctx.drawImage(soulImg, soul.x - 13 * pulse, soul.y - 25 * pulse, 26 * pulse, 50 * pulse);
     });
     ctx.globalAlpha = 1;
 
+    if (charge) {
+      var held = clamp((now - charge.start) / HEAVY_CHARGE_MS, 0, 1);
+      ctx.strokeStyle = held >= 1 ? '#e8c46a' : 'rgba(243, 234, 210, 0.8)';
+      ctx.lineWidth = held >= 1 ? 5 : 3;
+      ctx.beginPath();
+      ctx.arc(pointer.x, pointer.y, 26, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * held);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+
     ctx.font = 'bold 22px Georgia, serif';
     ctx.textAlign = 'center';
     for (var i = texts.length - 1; i >= 0; i--) {
-      var life = (now - texts[i].born) / 800;
+      var life = Math.max(0, (now - texts[i].born) / 800);
       if (life >= 1) { texts.splice(i, 1); continue; }
       ctx.globalAlpha = 1 - life;
       ctx.fillStyle = texts[i].color;
@@ -666,15 +1096,22 @@
   function tick(now) {
     var dt = Math.min(0.033, (now - lastFrame) / 1000);
     lastFrame = now;
+    updateHeldWeapons(now, dt);
     updateUrn(now, dt);
-    updateBricks(now, dt);
     updateBombs(now, dt);
+    updateTurrets(now);
+    updateBurn(now, dt);
+    updateParticles(now, dt);
     updateLeak(dt);
     updateSouls(now, dt);
     shake *= 1 - Math.min(1, 8 * dt);
     warpMusic(now);
     draw(now);
     placeBubble();
+    if (saveDirty && now - lastSaveAt > SAVE_INTERVAL_MS) {
+      lastSaveAt = now;
+      saveGame();
+    }
     requestAnimationFrame(tick);
   }
 
@@ -687,24 +1124,55 @@
 
   function pressRoom(e) {
     trackPointer(e);
-    var onUrn = checkInsideUrn(pointer.x, pointer.y);
-    if (tool === 'hand' && onUrn) {
-      urn.grabbed = true;
-      urn.grabDx = pointer.x - urn.x;
-      urn.grabDy = pointer.y - urn.y;
-      urn.grabbedAt = performance.now();
-      lastEventAt = urn.grabbedAt;
-      say('idol_picked_up', false);
-    } else if (tool === 'punch' && onUrn) {
-      punchUrn(pointer.x, pointer.y);
-    } else if (tool === 'brick') {
-      throwBrick(pointer.x, pointer.y);
-    } else if (tool === 'bomb') {
-      placeBomb(pointer.x, pointer.y);
+    canvas.setPointerCapture(e.pointerId);
+    var onUrn = checkInsideUrn(pointer.x, pointer.y, GRAB_PAD);
+    if (e.button === 2 || tool === 'hand') {
+      if (onUrn) grabUrn();
+      return;
     }
+    pointer.down = true;
+    if (tool === 'melee' && onUrn) charge = { start: performance.now() };
+    else if (tool === 'shotgun') fireGun(SHOTGUN, performance.now());
+    else if (tool === 'hook') throwHook();
+    else if (tool === 'puddle') puddlePunch();
+    else if (tool === 'sticky') placeBomb();
+    else if (tool === 'turret') toggleTurret();
+  }
+
+  function releaseRoom() {
+    pointer.down = false;
+    releaseUrn();
+    if (!charge) return;
+    var heavy = performance.now() - charge.start >= HEAVY_CHARGE_MS;
+    charge = null;
+    if (checkInsideUrn(pointer.x, pointer.y, GRAB_PAD)) punchUrn(heavy ? HEAVY_MELEE : LIGHT_MELEE);
+  }
+
+  function toggleMusic() {
+    musicOn = !musicOn;
+    musicToggle.textContent = 'Music: ' + (musicOn ? 'on' : 'off');
+    announce.muted = !musicOn;
+    music.muted = !musicOn;
+  }
+
+  // Two clicks instead of a confirm() popup: the first arms it, the second wipes the save.
+  function pressReset() {
+    if (!resetButton.classList.contains('warn')) {
+      resetButton.classList.add('warn');
+      resetButton.textContent = 'Wipe save?';
+      resetTimer = setTimeout(function () {
+        resetButton.classList.remove('warn');
+        resetButton.textContent = 'Reset';
+      }, 2500);
+      return;
+    }
+    clearTimeout(resetTimer);
+    try { localStorage.removeItem(SAVE_KEY); } catch (err) { /* see loadGame */ }
+    location.reload();
   }
 
   function start() {
+    started = true;
     startOverlay.remove();
     announce.play().catch(function () {});
     announce.addEventListener('ended', function () { music.play().catch(function () {}); });
@@ -716,14 +1184,24 @@
 
   window.addEventListener('resize', resize);
   canvas.addEventListener('pointerdown', pressRoom);
+  canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   window.addEventListener('pointermove', trackPointer);
-  window.addEventListener('pointerup', releaseUrn);
+  window.addEventListener('pointerup', releaseRoom);
+  window.addEventListener('pointercancel', releaseRoom);
+  window.addEventListener('beforeunload', function () { if (saveDirty) saveGame(); });
   window.addEventListener('keydown', function (e) {
-    var def = TOOLS[Number(e.key) - 1];
-    if (def) selectTool(def.id);
+    if (!started || e.key < '0' || e.key > '9') return;
+    selectTool(TOOLS[(Number(e.key) + 9) % 10].id);
   });
+  musicToggle.addEventListener('click', toggleMusic);
+  resetButton.addEventListener('click', pressReset);
   startOverlay.addEventListener('click', start);
+  urnImg.addEventListener('load', function () { crackDirty = true; });
 
+  urnImg.src = IMG_DIR + 'Soul_Urn_Render.png';
+  soulImg.src = IMG_DIR + 'Souls_icon.png';
+  loadGame();
+  scoreValue.textContent = score;
   resize();
   buildToolbar();
 })();
