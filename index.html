@@ -58,9 +58,14 @@
   #menu button.warn { color: var(--bad); }
   #menu input[type=range] { width: 90px; accent-color: var(--soul); }
 
+  /* Bottom panel: item slots on the left, integrity and souls on the right, abilities between them. */
   #hud {
     position: fixed; left: 16px; bottom: 12px;
     display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none;
+  }
+  #status {
+    position: fixed; right: 16px; bottom: 12px;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none;
   }
   #integrity {
     position: relative; width: 190px; height: 30px; margin-left: 6px; transform: skewX(-12deg);
@@ -166,7 +171,8 @@
 
   /* Tablet and narrower: the ability bar needs the bottom edge, so the HUD moves to the top left. */
   @media (max-width: 1150px) {
-    #hud { top: 48px; bottom: auto; }
+    #status { top: 48px; bottom: auto; left: 16px; right: auto; align-items: flex-start; }
+    #hud { top: 136px; bottom: auto; }
   }
 
   @media (max-width: 900px) {
@@ -203,7 +209,7 @@
   <button id="resetButton" type="button">Reset</button>
 </div>
 
-<div id="hud">
+<div id="status">
   <div id="integrity" data-tip="Integrity">
     <div id="leakFill"></div><span id="leakLabel">100 / 100</span>
   </div>
@@ -214,6 +220,9 @@
       <div id="haunted" data-tip="Haunted souls"></div>
     </div>
   </div>
+</div>
+
+<div id="hud">
   <div id="itemRow">
     <div id="buffs"></div>
     <button id="shopButton" type="button"><span class="key">B</span> SHOP</button>
@@ -457,6 +466,7 @@
   var bubble = document.getElementById('bubble');
   var tip = document.getElementById('tip');
   var hud = document.getElementById('hud');
+  var statusBox = document.getElementById('status');
   var scoreValue = document.getElementById('scoreValue');
   var leakLabel = document.getElementById('leakLabel');
   var leakFill = document.getElementById('leakFill');
@@ -833,7 +843,8 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // The floor sits above the bottom panel: the ability bar, and the HUD too while it is docked down there.
     var hudDocked = hud.getBoundingClientRect().top > height / 2;
-    var panelHeight = Math.max(toolbar.offsetHeight + 16, hudDocked ? hud.offsetHeight + 20 : 0);
+    var dockedHeight = hudDocked ? Math.max(hud.offsetHeight, statusBox.offsetHeight) + 20 : 0;
+    var panelHeight = Math.max(toolbar.offsetHeight + 16, dockedHeight);
     floorY = height - panelHeight - 10;
     urn.h = clamp(height * 0.27, 120, 300);
     urn.w = urn.h * URN_ASPECT;
@@ -2328,10 +2339,24 @@
     var mood = getMood();
     var blush = clamp((blushUntil - now) / 600, 0, 1);
     if (blush > 0) {
-      ctx.globalAlpha = 0.6 * blush;
-      drawGlow(glows.pink, -urn.w * 0.2, -urn.h * 0.1, urn.w * 0.17);
-      drawGlow(glows.pink, urn.w * 0.2, -urn.h * 0.1, urn.w * 0.17);
+      // Cartoon blush high on his shoulders: a pink oval each side with three slanted hatch marks.
+      ctx.lineCap = 'round';
+      ctx.lineWidth = 2;
+      [-1, 1].forEach(function (side) {
+        var x = side * urn.w * 0.23;
+        var y = -urn.h * 0.3;
+        ctx.globalAlpha = 0.6 * blush;
+        ctx.fillStyle = '#ff6e8c';
+        fillEllipse(x, y, urn.w * 0.13, urn.h * 0.032);
+        ctx.globalAlpha = 0.9 * blush;
+        ctx.strokeStyle = '#e0355e';
+        for (var mark = -1; mark <= 1; mark++) {
+          strokeLine(x + mark * urn.w * 0.06 - 2, y + urn.h * 0.02, x + mark * urn.w * 0.06 + 3, y - urn.h * 0.02);
+        }
+      });
       ctx.globalAlpha = 1;
+      ctx.lineWidth = 1;
+      ctx.lineCap = 'butt';
     }
     if (mood === 'furious') {
       ctx.globalCompositeOperation = 'lighter';
