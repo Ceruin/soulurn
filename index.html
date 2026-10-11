@@ -164,15 +164,6 @@
   }
   #bubble.show { opacity: 1; }
 
-  #start {
-    position: fixed; inset: 0; z-index: 10;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-    background: rgba(4, 10, 9, 0.9); cursor: pointer; text-align: center; padding: 16px;
-  }
-  #start h1 { margin: 0; font-size: clamp(30px, 6vw, 60px); color: var(--gold); letter-spacing: 3px; }
-  #start p { margin: 0; font-size: 17px; opacity: 0.85; font-weight: 400; }
-  #start .go { color: var(--soul); font-weight: 700; text-shadow: 0 0 12px var(--soul); animation: bob 1.2s ease-in-out infinite; }
-
   /* Tablet and narrower: the ability bar needs the bottom edge, so the HUD moves to the top left. */
   @media (max-width: 1150px) {
     #hud { top: 48px; bottom: auto; }
@@ -196,7 +187,6 @@
     #leakLabel { line-height: 22px; font-size: 14px; }
   }
 
-  @keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
   @keyframes nope { 0%, 100% { translate: 0 0; } 25% { translate: -5px 0; } 75% { translate: 5px 0; } }
 </style>
 </head>
@@ -238,11 +228,6 @@
   <header><span>Curiosity Shop</span><button id="shopClose" type="button" aria-label="Close shop">X</button></header>
   <div id="shopList"></div>
   <footer><span class="key">ESC</span> Back</footer>
-</div>
-
-<div id="start">
-  <h1>INTERACTIVE URN</h1>
-  <p class="go">Click to begin</p>
 </div>
 
 <script src="assets/lines.js"></script>
@@ -289,6 +274,8 @@
   var ANGER_PER_DAMAGE = 1.2;
   var ANGER_DECAY = 3;
   var BORED_AFTER_MS = 20000;
+  var BLUSH_PICKUP_MS = 2500;
+  var BLUSH_PRAISE_MS = 4000;
   var SCARED_BELOW = 0.3;
   // His mood is never shown. It only decides which of his lines he reaches for.
   var MOOD_LINES = {
@@ -350,7 +337,10 @@
   var TURRET_DAMAGE = 1.5;
   var MAX_PARTICLES = 500;
   var GUN_SIZE = 120;
-  var TURRET_GUN_SIZE = 96;
+  var TURRET_WIDTH = 110;
+  var TURRET_HEIGHT = 72;
+  var TURRET_MUZZLE_HEIGHT = 40;
+  var FIST_SIZE = 110;
   var HOOK_SIZE = 110;
   var BOMB_SIZE = 46;
   var SOUL_SIZE = 68;
@@ -358,7 +348,7 @@
 
   var GLOW_COLORS = {
     white: '255, 250, 235', yellow: '255, 214, 110', orange: '255, 140, 40', red: '214, 60, 24',
-    teal: '110, 230, 184', blue: '120, 200, 255', gold: '232, 196, 106', goo: '150, 220, 110', smoke: '40, 38, 36'
+    teal: '110, 230, 184', pink: '255, 120, 150', violet: '150, 110, 255', blue: '120, 200, 255', gold: '232, 196, 106', goo: '150, 220, 110', smoke: '40, 38, 36'
   };
   // gravity and drag drive the motion; a particle is drawn at size * (scale + grow * age).
   var PARTICLE_KINDS = {
@@ -481,7 +471,6 @@
   var shop = document.getElementById('shop');
   var shopList = document.getElementById('shopList');
   var resetButton = document.getElementById('resetButton');
-  var startOverlay = document.getElementById('start');
 
   var urnImg = new Image();
   var statueImg = new Image();
@@ -490,7 +479,8 @@
   var bagImg = new Image();
   var bombImg = new Image();
   var hookImg = new Image();
-  var turretGunImg = new Image();
+  var turretImg = new Image();
+  var fistImg = new Image();
   var smgImg = new Image();
   var shotgunImg = new Image();
   var crackCanvas = document.createElement('canvas');
@@ -503,7 +493,7 @@
   var height = 0;
   var floorY = 0;
   var urnPlaced = false;
-  var started = false;
+  var audioStarted = false;
 
   var urn = { x: 0, y: 0, vx: 0, vy: 0, a: 0, va: 0, w: 0, h: 0, grabbed: false, onFloor: false, broken: false, descending: false, grabDx: 0, grabDy: 0, grabbedAt: 0 };
   var pointer = { x: -999, y: -999, down: false, inside: false };
@@ -542,6 +532,7 @@
   var soulDebt = 0;
   var painBank = 0;
   var anger = 0;
+  var blushUntil = 0;
   var lastTouchedAt = 0;
   var itemBonus = {};
   var balls = [];
@@ -1230,6 +1221,7 @@
     if (score >= nextMilestone) {
       nextMilestone += MILESTONE_SOULS;
       say('idol_delivered', true);
+      blushUntil = performance.now() + BLUSH_PRAISE_MS;
       // Delivering an urn pays out permanent buffs in the game; a soul milestone is the delivery here.
       for (var i = 0; i < URN_DELIVERY_BUFFS; i++) spawnTome(urn.x, urn.y - urn.h / 2, rand(-300, 300), rand(-800, -450));
     }
@@ -1308,6 +1300,8 @@
     urn.grabbedAt = performance.now();
     lastEventAt = urn.grabbedAt;
     urn.descending = false;
+    // Being picked up while he is in a good mood makes him blush.
+    if (anger <= 20) blushUntil = urn.grabbedAt + BLUSH_PICKUP_MS;
     lastTouchedAt = urn.grabbedAt;
     sayMood('pickup');
   }
@@ -1400,6 +1394,11 @@
     leak = Math.max(0, leak - LEAK_DECAY * recovery);
     stress = Math.max(0, stress - STRESS_DECAY * recovery);
     anger = Math.max(0, anger - ANGER_DECAY * dt);
+    // He steams from the lid while he is furious.
+    if (!urn.broken && getMood() === 'furious' && Math.random() < 4 * dt) {
+      var lid = fromUrnLocal(0, -urn.h * 0.48);
+      addParticle('smoke', urn.x + lid.x, urn.y + lid.y, rand(-30, 30), -120, 700, 8);
+    }
     soulDebt += leak * LEAK_SOULS_PER_SEC * dt;
     while (soulDebt >= 1) { soulDebt--; spawnSoul(); }
     var integrity = urn.broken ? 0 : Math.round((1 - stress / BREAK_AT) * 100);
@@ -1655,12 +1654,14 @@
     turrets.forEach(function (turret) {
       if (urn.broken || now - turret.lastShot < TURRET_INTERVAL_MS / getBuff('fireRate')) return;
       turret.lastShot = now;
-      var originY = floorY - 30;
-      var dx = urn.x + rand(-urn.w / 4, urn.w / 4) - turret.x;
+      // Rounds leave the barrel tip, on whichever side of the turret he is.
+      var originX = turret.x + (urn.x < turret.x ? -1 : 1) * TURRET_WIDTH * 0.48;
+      var originY = floorY - TURRET_MUZZLE_HEIGHT;
+      var dx = urn.x + rand(-urn.w / 4, urn.w / 4) - originX;
       var dy = urn.y + rand(-urn.h / 4, urn.h / 4) - originY;
       var length = Math.sqrt(dx * dx + dy * dy) || 1;
-      addEffect('muzzle', turret.x + dx / length * 34, originY + dy / length * 34, 0.8, Math.atan2(dy, dx));
-      shootRay(turret.x, originY, dx / length, dy / length, TURRET_DAMAGE * getBuff('weapon'), 90);
+      addEffect('muzzle', originX, originY, 0.8, Math.atan2(dy, dx));
+      shootRay(originX, originY, dx / length, dy / length, TURRET_DAMAGE * getBuff('weapon'), 90);
     });
   }
 
@@ -1932,17 +1933,13 @@
     ctx.restore();
   }
 
+  // The turret art faces left, so it is mirrored while he is on its right.
   function drawTurret(turret) {
-    var originY = floorY - 30;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#2b2f2c';
-    ctx.lineWidth = 5;
-    strokeLine(turret.x, originY + 6, turret.x - 20, floorY);
-    strokeLine(turret.x, originY + 6, turret.x + 20, floorY);
-    strokeLine(turret.x, originY + 6, turret.x, floorY);
-    ctx.lineWidth = 1;
-    ctx.lineCap = 'butt';
-    drawAimedSprite(turretGunImg, turret.x, originY, Math.atan2(urn.y - originY, urn.x - turret.x), TURRET_GUN_SIZE);
+    ctx.save();
+    ctx.translate(turret.x, floorY);
+    if (urn.x > turret.x) ctx.scale(-1, 1);
+    ctx.drawImage(turretImg, -TURRET_WIDTH / 2, -TURRET_HEIGHT, TURRET_WIDTH, TURRET_HEIGHT);
+    ctx.restore();
   }
 
   // Where the held gun sits (the corner past the ability bar) and where it points.
@@ -1960,67 +1957,151 @@
       pose.x - Math.cos(pose.angle) * kick, pose.y - Math.sin(pose.angle) * kick, pose.angle, GUN_SIZE);
   }
 
+  function fillEllipse(x, y, radiusX, radiusY) {
+    ctx.beginPath();
+    ctx.ellipse(x, y, radiusX, radiusY, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Goo wells up out of a puddle on a swaying stalk and throws the fist at the top of it.
   function drawGooFist(now) {
-    var t = (now - gooFist.born) / 360;
+    var t = (now - gooFist.born) / 420;
     if (t >= 1) { gooFist = null; return; }
     var x = gooFist.x;
-    var top = floorY - Math.sin(Math.PI * Math.max(0, t)) * PUDDLE_REACH;
-    ctx.fillStyle = 'rgba(70, 130, 60, 0.8)';
+    var swell = Math.sin(Math.PI * Math.max(0, t));
+    var top = floorY - swell * PUDDLE_REACH;
+    var sway = Math.sin(now / 70) * 5 * swell;
+
+    ctx.fillStyle = '#2f7a2c';
+    fillEllipse(x, floorY, 86 * (0.6 + 0.4 * swell), 11);
+    ctx.fillStyle = 'rgba(190, 245, 150, 0.55)';
+    fillEllipse(x - 20, floorY - 2, 30 * swell + 6, 3);
+
+    var stalk = ctx.createLinearGradient(x - 30, 0, x + 30, 0);
+    stalk.addColorStop(0, '#3f9a36');
+    stalk.addColorStop(0.35, '#7fe05a');
+    stalk.addColorStop(0.6, '#58c446');
+    stalk.addColorStop(1, '#2f7a2c');
+    ctx.fillStyle = stalk;
     ctx.beginPath();
-    ctx.ellipse(x, floorY, 80, 10, 0, 0, Math.PI * 2);
+    ctx.moveTo(x - 46, floorY);
+    ctx.bezierCurveTo(x - 22, floorY - 18, x - 26 + sway, top + 60, x - 20 + sway, top + 10);
+    ctx.lineTo(x + 20 + sway, top + 10);
+    ctx.bezierCurveTo(x + 26 + sway, top + 60, x + 22, floorY - 18, x + 46, floorY);
+    ctx.closePath();
     ctx.fill();
-    var goo = ctx.createLinearGradient(0, top - 36, 0, floorY);
-    goo.addColorStop(0, '#d6f58a');
-    goo.addColorStop(0.4, '#8fd45a');
-    goo.addColorStop(1, '#3d7a3a');
-    ctx.fillStyle = goo;
+
+    ctx.strokeStyle = 'rgba(230, 255, 200, 0.5)';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(x - 62, floorY);
-    ctx.quadraticCurveTo(x - 30, floorY - (floorY - top) * 0.4, x - 36, top);
-    ctx.arc(x, top, 36, Math.PI, 0);
-    ctx.quadraticCurveTo(x + 30, floorY - (floorY - top) * 0.4, x + 62, floorY);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(40, 90, 40, 0.7)';
-    ctx.lineWidth = 3;
-    for (var knuckle = -1; knuckle <= 1; knuckle++) {
-      ctx.beginPath();
-      ctx.arc(x + knuckle * 20, top - 6, 11, Math.PI * 1.1, Math.PI * 1.9);
-      ctx.stroke();
-    }
+    ctx.moveTo(x - 10 + sway * 0.6, top + 24);
+    ctx.quadraticCurveTo(x - 16, (top + floorY) / 2, x - 20, floorY - 22);
+    ctx.stroke();
     ctx.lineWidth = 1;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineCap = 'butt';
+
+    // The fist stretches tall on the way up and squashes as it peaks.
+    var stretch = 1 + 0.15 * Math.cos(Math.PI * t);
+    ctx.save();
+    ctx.translate(x + sway, top - FIST_SIZE * 0.18);
+    ctx.rotate(sway * 0.02);
+    ctx.scale(1 / stretch, stretch);
+    ctx.drawImage(fistImg, -FIST_SIZE / 2, -FIST_SIZE / 2, FIST_SIZE, FIST_SIZE);
+    ctx.restore();
+  }
+
+  // One half of the tilted accretion ring; the far half is drawn behind the core, the near half in front.
+  function strokeRingHalf(x, y, from, to) {
+    ctx.strokeStyle = 'rgba(255, 232, 178, 0.85)';
+    ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.ellipse(x - 14, top - 16, 9, 5, -0.5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.ellipse(x, y, 80, 22, -0.35, from, to);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 80, 22, -0.35, from, to);
+    ctx.stroke();
   }
 
   function drawVortex(now) {
     var x = pointer.x;
     var y = pointer.y;
+    var t = now / 1000;
+    var i;
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.55;
-    drawGlow(glows.blue, x, y, 150);
+    ctx.globalAlpha = 0.5;
+    drawGlow(glows.blue, x, y, 190);
+    ctx.globalAlpha = 0.4;
+    drawGlow(glows.violet, x, y, 130);
+
+    // Slow shafts of light fanning out behind everything.
     ctx.globalAlpha = 1;
+    for (i = 0; i < 10; i++) {
+      var shaft = i * Math.PI / 5 + t * 0.4;
+      var light = ctx.createRadialGradient(x, y, 50, x, y, 210);
+      light.addColorStop(0, 'rgba(150, 200, 255, 0.16)');
+      light.addColorStop(1, 'rgba(150, 200, 255, 0)');
+      ctx.fillStyle = light;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.arc(x, y, 210, shaft - 0.07, shaft + 0.07);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Spiral arms winding into the core, brighter and thicker the closer they get.
     ctx.lineCap = 'round';
-    for (var arm = 0; arm < 4; arm++) {
-      for (var step = 0; step < 3; step++) {
-        var start = now / 220 + arm * Math.PI / 2 + step * 0.5;
-        ctx.strokeStyle = 'rgba(150, 215, 255, ' + (0.8 - step * 0.22) + ')';
-        ctx.lineWidth = 5 - step * 1.3;
-        ctx.beginPath();
-        ctx.arc(x, y, 46 + step * 22, start, start + 0.9);
-        ctx.stroke();
+    for (var arm = 0; arm < 3; arm++) {
+      for (i = 0; i < 26; i++) {
+        var near = i / 26;
+        var radius = 150 - near * 104;
+        var turn = arm * Math.PI * 2 / 3 + near * 4.2 + t * 2.2;
+        var nextRadius = 150 - (near + 1 / 26) * 104;
+        var nextTurn = arm * Math.PI * 2 / 3 + (near + 1 / 26) * 4.2 + t * 2.2;
+        ctx.strokeStyle = 'rgba(170, 220, 255, ' + (0.08 + near * 0.7) + ')';
+        ctx.lineWidth = 1 + near * 4;
+        strokeLine(x + Math.cos(turn) * radius, y + Math.sin(turn) * radius,
+          x + Math.cos(nextTurn) * nextRadius, y + Math.sin(nextTurn) * nextRadius);
       }
     }
-    ctx.globalCompositeOperation = 'source-over';
-    var core = ctx.createRadialGradient(x, y, 4, x, y, 40);
-    core.addColorStop(0, '#02030a');
-    core.addColorStop(0.75, '#050818');
-    core.addColorStop(1, 'rgba(120, 200, 255, 0.9)');
-    ctx.fillStyle = core;
+
+    // A ring of force rolling outward.
+    var roll = (t * 0.9) % 1;
+    ctx.strokeStyle = 'rgba(150, 200, 255, ' + (0.5 * (1 - roll)) + ')';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y, 40, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(x, y, 60 + roll * 140, 0, Math.PI * 2);
+    ctx.stroke();
+
+    strokeRingHalf(x, y, Math.PI, Math.PI * 2);
+    ctx.globalCompositeOperation = 'source-over';
+
+    var core = ctx.createRadialGradient(x, y, 4, x, y, 42);
+    core.addColorStop(0, '#000004');
+    core.addColorStop(0.8, '#060a22');
+    core.addColorStop(1, '#16286a');
+    ctx.fillStyle = core;
+    fillEllipse(x, y, 42 + 2 * Math.sin(t * 5), 42 + 2 * Math.sin(t * 5));
+    // Stars turning inside the dark.
+    ctx.fillStyle = '#ffffff';
+    for (i = 0; i < 14; i++) {
+      var orbit = i * 2.39996 + t * 0.6;
+      var depth = 34 * Math.sqrt((i + 0.5) / 14);
+      ctx.globalAlpha = 0.45 + 0.45 * Math.sin(t * 3 + i);
+      fillEllipse(x + Math.cos(orbit) * depth, y + Math.sin(orbit) * depth, 1.3, 1.3);
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(190, 230, 255, 0.95)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(x, y, 42, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.globalCompositeOperation = 'lighter';
+    strokeRingHalf(x, y, 0, Math.PI);
+    ctx.globalCompositeOperation = 'source-over';
     ctx.lineWidth = 1;
     ctx.lineCap = 'butt';
   }
@@ -2227,6 +2308,52 @@
     ctx.lineCap = 'butt';
   }
 
+  // The cartoon "popping vein" mark: four curved ticks around a point.
+  function drawVein(x, y, scale) {
+    ctx.strokeStyle = '#e0352b';
+    ctx.lineWidth = 3 * scale;
+    ctx.lineCap = 'round';
+    for (var quarter = 0; quarter < 4; quarter++) {
+      var angle = quarter * Math.PI / 2 + Math.PI / 4;
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(angle) * 8 * scale, y + Math.sin(angle) * 8 * scale, 5 * scale, angle + Math.PI - 0.9, angle + Math.PI + 0.9);
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+    ctx.lineCap = 'butt';
+  }
+
+  // His mood shown on his body, drawn in his own rotated space: blush, anger marks, a red flush, sweat.
+  function drawMood(now) {
+    var mood = getMood();
+    var blush = clamp((blushUntil - now) / 600, 0, 1);
+    if (blush > 0) {
+      ctx.globalAlpha = 0.6 * blush;
+      drawGlow(glows.pink, -urn.w * 0.2, -urn.h * 0.1, urn.w * 0.17);
+      drawGlow(glows.pink, urn.w * 0.2, -urn.h * 0.1, urn.w * 0.17);
+      ctx.globalAlpha = 1;
+    }
+    if (mood === 'furious') {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.28;
+      drawGlow(glows.red, 0, -urn.h * 0.05, urn.h * 0.55);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    if (mood === 'annoyed' || mood === 'furious') drawVein(urn.w * 0.27, -urn.h * 0.37, mood === 'furious' ? 1.4 : 1);
+    if (mood === 'scared') {
+      ctx.fillStyle = '#bfeaff';
+      for (var drop = 0; drop < 2; drop++) {
+        var slide = (now / 900 + drop * 0.5) % 1;
+        ctx.globalAlpha = 0.85 * (1 - slide);
+        ctx.beginPath();
+        ctx.ellipse((drop ? -1 : 1) * urn.w * 0.3, -urn.h * 0.32 + slide * urn.h * 0.25, 3, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
   function drawStatue(statue) {
     var size = STATUE_HEIGHT * 1.5;
     ctx.drawImage(statueImg, statue.x - size / 2, floorY - size * 0.87, size, size);
@@ -2380,9 +2507,11 @@
     if (urnDirty || getDamageStage() !== renderedStage) renderUrn();
     if (!urn.broken && crackCanvas.width && !urnDirty) {
       ctx.save();
-      ctx.translate(urn.x, urn.y);
+      // He shivers when he is scared.
+      ctx.translate(urn.x + (getMood() === 'scared' ? rand(-1.2, 1.2) : 0), urn.y);
       ctx.rotate(urn.a);
       ctx.drawImage(crackCanvas, -urn.w / 2, -urn.h / 2, urn.w, urn.h);
+      drawMood(now);
       ctx.restore();
     }
     drawShards(now);
@@ -2546,9 +2675,6 @@
   }
 
   function start() {
-    started = true;
-    startOverlay.remove();
-    announce.play().catch(function () {});
     announce.addEventListener('ended', function () { if (trackIndex < 0) playTrack(0); });
     music.addEventListener('ended', playNextTrack);
     nextStatueAt = performance.now() + STATUE_FIRST_MS;
@@ -2557,6 +2683,13 @@
     startedAt = lastFrame;
     lastTouchedAt = lastFrame;
     requestAnimationFrame(tick);
+  }
+
+  // Browsers only allow sound after the first click or key press, so his hello waits for it.
+  function startAudio() {
+    if (audioStarted) return;
+    audioStarted = true;
+    announce.play().catch(function () {});
     say('mix_hello', true);
   }
 
@@ -2568,7 +2701,6 @@
   window.addEventListener('pointercancel', releaseRoom);
   window.addEventListener('beforeunload', function () { if (saveDirty) saveGame(); });
   window.addEventListener('keydown', function (e) {
-    if (!started) return;
     if (e.key === 'b' || e.key === 'B') shop.classList.toggle('open');
     else if (e.key === 'Escape') closeShop();
     else if (e.key.length === 1 && e.key >= '0' && e.key <= '9') selectSlot((Number(e.key) + 9) % 10);
@@ -2584,7 +2716,9 @@
     applyVolume();
   });
   resetButton.addEventListener('click', pressReset);
-  startOverlay.addEventListener('click', start);
+  window.addEventListener('pointerdown', startAudio);
+  window.addEventListener('keydown', startAudio);
+  document.addEventListener('visibilitychange', function () { if (saveDirty) saveGame(); });
   urnImg.addEventListener('load', function () { urnDirty = true; });
 
   BUFFS.forEach(function (def) {
@@ -2597,7 +2731,8 @@
   bagImg.src = IMG_DIR + 'Soul_Bag_Render.png';
   bombImg.src = IMG_DIR + 'Bebop_Bomb_Render.png';
   hookImg.src = IMG_DIR + 'Bebop_Hook_Render.png';
-  turretGunImg.src = IMG_DIR + 'McGinnis_Gun_Render.png';
+  turretImg.src = IMG_DIR + 'Mini_Turret_Side.png';
+  fistImg.src = IMG_DIR + 'Puddle_Punch_Render.png';
   smgImg.src = IMG_DIR + 'Haze_Gun_Render.png';
   shotgunImg.src = IMG_DIR + 'Abrams_Gun_Render.png';
   loadGame();
@@ -2615,6 +2750,7 @@
   buildCracks();
   buildToolbar();
   resize();
+  start();
 })();
 </script>
 </body>

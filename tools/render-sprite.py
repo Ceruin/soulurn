@@ -4,6 +4,8 @@
 #   mesh=<text>         keep only meshes whose name contains this text
 #   material=<name>     keep only the faces that use this material
 #   size=<pixels>       sprite edge length; default 256
+#   opaque=1            make see-through materials solid
+#   scale=<number>      enlarge the model first; very small models (a few centimetres) render as slivers
 import math
 import sys
 
@@ -42,6 +44,26 @@ if "material" in options:
         mesh.to_mesh(obj.data)
         mesh.free()
     meshes = [obj for obj in meshes if obj.data.polygons]
+
+if "scale" in options:
+    for obj in meshes:
+        obj.scale = [float(options["scale"])] * 3
+    bpy.context.view_layer.update()
+
+# See-through materials (goo, glass) render as a faint outline; opaque=1 makes them solid.
+if options.get("opaque") == "1":
+    for obj in meshes:
+        for slot in obj.material_slots:
+            shader = slot.material.node_tree.nodes.get("Principled BSDF")
+            if not shader:
+                continue
+            for name in ("Alpha", "Transmission Weight"):
+                socket = shader.inputs.get(name)
+                if not socket:
+                    continue
+                for link in list(socket.links):
+                    slot.material.node_tree.links.remove(link)
+                socket.default_value = 1.0 if name == "Alpha" else 0.0
 
 points = [obj.matrix_world @ vertex.co for obj in meshes for vertex in obj.data.vertices]
 low = Vector([min(point[axis] for point in points) for axis in range(3)])
