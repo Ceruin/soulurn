@@ -21,6 +21,8 @@ with no build step, so it also runs as-is on GitHub Pages.
 
 - `node tools/fetch-assets.js` downloads the voice lines, icons, music and backgrounds.
 - `node tools/mix-voice.js` builds the sentence-mixed voice lines (needs ffmpeg on PATH).
+- `blender --background --python tools/render-sprite.py -- <model.glb> <out.png>` renders a game model
+  to a sprite (the Soul Bag, hook arm, bomb and guns were made this way).
 
 ## Credits
 

@@ -60,7 +60,7 @@
 
   #hud {
     position: fixed; left: 16px; bottom: 12px;
-    display: flex; flex-direction: column; align-items: flex-start; gap: 8px; pointer-events: none;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none;
   }
   #integrity {
     position: relative; width: 190px; height: 30px; margin-left: 6px; transform: skewX(-12deg);
@@ -84,8 +84,9 @@
   #score img { height: 30px; align-self: center; }
   #score small { font-size: 12px; color: var(--paper); letter-spacing: 1px; }
   #haunted { font-size: 12px; color: #e58a7e; text-shadow: 0 1px 2px #000; pointer-events: auto; }
-  #buffs { display: grid; grid-template-columns: repeat(5, 40px); gap: 4px; pointer-events: auto; }
-  .slot { position: relative; width: 40px; height: 40px; background: var(--slot); border-radius: 3px; }
+  #itemRow { display: flex; align-items: flex-end; gap: 8px; }
+  #buffs { display: grid; grid-template-columns: repeat(5, 30px); gap: 4px; pointer-events: auto; }
+  .slot { position: relative; width: 30px; height: 30px; background: var(--slot); border-radius: 3px; }
   .slot img { width: 100%; height: 100%; object-fit: contain; }
   .slot span { position: absolute; right: 3px; bottom: 0; font-size: 12px; text-shadow: 0 1px 2px #000, 0 0 3px #000; }
   #shopButton {
@@ -175,8 +176,6 @@
   /* Tablet and narrower: the ability bar needs the bottom edge, so the HUD moves to the top left. */
   @media (max-width: 1150px) {
     #hud { top: 48px; bottom: auto; }
-    #buffs { grid-template-columns: repeat(5, 30px); }
-    .slot { width: 30px; height: 30px; }
   }
 
   @media (max-width: 900px) {
@@ -225,8 +224,10 @@
       <div id="haunted" data-tip="Haunted souls"></div>
     </div>
   </div>
-  <div id="buffs"></div>
-  <button id="shopButton" type="button"><span class="key">B</span> SHOP</button>
+  <div id="itemRow">
+    <div id="buffs"></div>
+    <button id="shopButton" type="button"><span class="key">B</span> SHOP</button>
+  </div>
 </div>
 
 <div id="bubble"></div>
@@ -348,6 +349,12 @@
   var TURRET_INTERVAL_MS = 600;
   var TURRET_DAMAGE = 1.5;
   var MAX_PARTICLES = 500;
+  var GUN_SIZE = 120;
+  var TURRET_GUN_SIZE = 96;
+  var HOOK_SIZE = 110;
+  var BOMB_SIZE = 46;
+  var SOUL_SIZE = 68;
+  var SOUL_TRAIL_POINTS = 8;
 
   var GLOW_COLORS = {
     white: '255, 250, 235', yellow: '255, 214, 110', orange: '255, 140, 40', red: '214, 60, 24',
@@ -459,6 +466,7 @@
   var ctx = canvas.getContext('2d');
   var bubble = document.getElementById('bubble');
   var tip = document.getElementById('tip');
+  var hud = document.getElementById('hud');
   var scoreValue = document.getElementById('scoreValue');
   var leakLabel = document.getElementById('leakLabel');
   var leakFill = document.getElementById('leakFill');
@@ -479,7 +487,12 @@
   var statueImg = new Image();
   var tomeImgs = {};
   var soulSprite = document.createElement('canvas');
-  var bagSprite = document.createElement('canvas');
+  var bagImg = new Image();
+  var bombImg = new Image();
+  var hookImg = new Image();
+  var turretGunImg = new Image();
+  var smgImg = new Image();
+  var shotgunImg = new Image();
   var crackCanvas = document.createElement('canvas');
   var crackCtx = crackCanvas.getContext('2d');
 
@@ -827,9 +840,10 @@
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // The floor sits just above the ability bar, however many rows the bar wraps to.
-    var barHeight = toolbar.offsetHeight + 16;
-    floorY = height - barHeight - 10;
+    // The floor sits above the bottom panel: the ability bar, and the HUD too while it is docked down there.
+    var hudDocked = hud.getBoundingClientRect().top > height / 2;
+    var panelHeight = Math.max(toolbar.offsetHeight + 16, hudDocked ? hud.offsetHeight + 20 : 0);
+    floorY = height - panelHeight - 10;
     urn.h = clamp(height * 0.27, 120, 300);
     urn.w = urn.h * URN_ASPECT;
     urnDirty = true;
@@ -1143,106 +1157,43 @@
     });
   }
 
-  // The soul orb: a bright green sphere with a hot core, a wide bloom and a faint vertical glint.
+  // The soul orb as it looks in a match: a dark core wrapped in a ragged teal blaze.
   function buildSoulSprite() {
     soulSprite.width = 128;
     soulSprite.height = 128;
     var c = soulSprite.getContext('2d');
-    var bloom = c.createRadialGradient(64, 64, 4, 64, 64, 64);
-    bloom.addColorStop(0, 'rgba(120, 255, 190, 0.85)');
-    bloom.addColorStop(0.3, 'rgba(60, 235, 150, 0.35)');
-    bloom.addColorStop(1, 'rgba(60, 235, 150, 0)');
+    var bloom = c.createRadialGradient(64, 64, 8, 64, 64, 62);
+    bloom.addColorStop(0, 'rgba(70, 255, 205, 0.55)');
+    bloom.addColorStop(0.5, 'rgba(40, 220, 170, 0.18)');
+    bloom.addColorStop(1, 'rgba(40, 220, 170, 0)');
     c.fillStyle = bloom;
     c.fillRect(0, 0, 128, 128);
-    c.fillStyle = 'rgba(200, 255, 225, 0.2)';
-    c.beginPath();
-    c.ellipse(64, 64, 2, 40, 0, 0, Math.PI * 2);
-    c.fill();
-    var sphere = c.createRadialGradient(58, 56, 2, 64, 64, 20);
-    sphere.addColorStop(0, '#ffffff');
-    sphere.addColorStop(0.3, '#b8ffd9');
-    sphere.addColorStop(0.7, '#35e58f');
-    sphere.addColorStop(1, '#0e8a57');
-    c.beginPath();
-    c.arc(64, 64, 20, 0, Math.PI * 2);
-    c.fillStyle = sphere;
-    c.fill();
-    c.clip();
-    c.strokeStyle = 'rgba(6, 70, 44, 0.45)';
-    c.lineWidth = 2.2;
-    c.beginPath();
-    c.ellipse(64, 64, 20, 7, 0, 0, Math.PI * 2);
-    c.stroke();
-    c.beginPath();
-    c.ellipse(64, 64, 7, 20, 0, 0, Math.PI * 2);
-    c.stroke();
-    c.strokeStyle = 'rgba(5, 60, 40, 0.6)';
-    c.beginPath();
-    c.arc(64, 64, 20, 0, Math.PI * 2);
-    c.stroke();
-  }
-
-  // The soul bag: a dark metal cage ball with round openings onto a red core, the middle
-  // opening holding a triangle plate.
-  function buildBagSprite() {
-    bagSprite.width = 128;
-    bagSprite.height = 128;
-    var c = bagSprite.getContext('2d');
-    var radius = 58;
-    var core = c.createRadialGradient(64, 64, 5, 64, 64, radius);
-    core.addColorStop(0, '#7a2a20');
-    core.addColorStop(1, '#2a0f0c');
-    var metal = c.createLinearGradient(20, 14, 108, 114);
-    metal.addColorStop(0, '#8b9a96');
-    metal.addColorStop(0.45, '#2b3533');
-    metal.addColorStop(1, '#141a19');
-    function fillCircle(x, y, r, style) {
+    // Tongues of the blaze, uneven in length so the outline reads as ragged.
+    for (var tongue = 0; tongue < 16; tongue++) {
+      var angle = tongue / 16 * Math.PI * 2 + rand(-0.15, 0.15);
+      var reach = rand(26, 50);
+      var spread = rand(0.16, 0.3);
+      var flame = c.createRadialGradient(64, 64, 14, 64, 64, reach);
+      flame.addColorStop(0, 'rgba(150, 255, 225, 0.95)');
+      flame.addColorStop(1, 'rgba(60, 235, 185, 0)');
+      c.fillStyle = flame;
       c.beginPath();
-      c.arc(x, y, r, 0, Math.PI * 2);
-      c.fillStyle = style;
+      c.moveTo(64 + Math.cos(angle - spread) * 14, 64 + Math.sin(angle - spread) * 14);
+      c.lineTo(64 + Math.cos(angle) * reach, 64 + Math.sin(angle) * reach);
+      c.lineTo(64 + Math.cos(angle + spread) * 14, 64 + Math.sin(angle + spread) * 14);
+      c.closePath();
       c.fill();
     }
-    function rimCircle(x, y, r) {
-      c.lineWidth = 2.5;
-      c.strokeStyle = '#0e1312';
-      c.beginPath();
-      c.arc(x, y, r, 0, Math.PI * 2);
-      c.stroke();
-      c.strokeStyle = 'rgba(200, 215, 210, 0.35)';
-      c.beginPath();
-      c.arc(x, y, r + 2, Math.PI * 1.05, Math.PI * 1.6);
-      c.stroke();
-    }
+    var core = c.createRadialGradient(60, 59, 2, 64, 64, 15);
+    core.addColorStop(0, '#16302b');
+    core.addColorStop(1, '#020807');
+    c.fillStyle = core;
     c.beginPath();
-    c.arc(64, 64, radius, 0, Math.PI * 2);
-    c.clip();
-    c.fillStyle = metal;
-    c.fillRect(0, 0, 128, 128);
-    [[18, 64], [110, 64], [64, 18], [64, 110]].forEach(function (spot) {
-      fillCircle(spot[0], spot[1], 20, core);
-      rimCircle(spot[0], spot[1], 20);
-      c.lineWidth = 4;
-      c.strokeStyle = metal;
-      c.beginPath();
-      c.arc(spot[0], spot[1], 11, 0, Math.PI * 2);
-      c.stroke();
-    });
-    fillCircle(64, 64, 26, core);
-    rimCircle(64, 64, 26);
-    c.fillStyle = metal;
-    c.beginPath();
-    c.moveTo(64, 42);
-    c.lineTo(83, 75);
-    c.lineTo(45, 75);
-    c.closePath();
+    c.arc(64, 64, 15, 0, Math.PI * 2);
     c.fill();
-    fillCircle(64, 64, 7, core);
-    var shade = c.createRadialGradient(46, 42, 8, 64, 64, radius);
-    shade.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
-    shade.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
-    shade.addColorStop(1, 'rgba(0, 0, 0, 0.6)');
-    c.fillStyle = shade;
-    c.fillRect(0, 0, 128, 128);
+    c.strokeStyle = 'rgba(170, 255, 228, 0.9)';
+    c.lineWidth = 2;
+    c.stroke();
   }
 
   // Souls burst from where he was hit; with no hit point they seep out of a random spot on him.
@@ -1262,6 +1213,7 @@
       born: performance.now(),
       life: SOUL_LIFE_MS * getBuff('spiritResist'),
       sway: rand(0, 6.28),
+      trail: [],
       value: Math.round(rand(5, 15) * getBuff('health'))
     });
   }
@@ -1301,6 +1253,12 @@
       soul.y += soul.vy * dt;
       soul.x = clamp(soul.x, 14, width - 14);
       soul.y = Math.min(soul.y, floorY - 10);
+      // Drop a point of smoky tail every few pixels travelled.
+      var last = soul.trail[0];
+      if (!last || Math.abs(soul.x - last[0]) + Math.abs(soul.y - last[1]) > 7) {
+        soul.trail.unshift([soul.x, soul.y]);
+        if (soul.trail.length > SOUL_TRAIL_POINTS) soul.trail.pop();
+      }
 
       if (distance < reach) {
         addScore(soul.value);
@@ -1468,10 +1426,11 @@
     if (now - lastShotAt < gun.intervalMs / getBuff('fireRate')) return;
     lastShotAt = now;
     recoil = 1;
-    // The gun sits just off the right end of the ability bar, and every round lands on the crosshair.
-    var originX = width / 2 + Math.min(width * 0.36, 420);
-    var originY = floorY + 14;
-    addEffect('muzzle', originX, originY, gun.pellets > 1 ? 1.6 : 1, Math.atan2(pointer.y - originY, pointer.x - originX));
+    // Every round leaves the muzzle of the held gun and lands on the crosshair.
+    var pose = getGunPose();
+    var originX = pose.x + Math.cos(pose.angle) * GUN_SIZE * 0.45;
+    var originY = pose.y + Math.sin(pose.angle) * GUN_SIZE * 0.45;
+    addEffect('muzzle', originX, originY, gun.pellets > 1 ? 1.6 : 1, pose.angle);
     for (var i = 0; i < gun.pellets; i++) {
       var angle = rand(0, Math.PI * 2);
       var miss = Math.sqrt(Math.random()) * gun.spread;
@@ -1959,35 +1918,46 @@
     ctx.drawImage(sprite, x - radius, y - radius, radius * 2, radius * 2);
   }
 
+  // The gun renders point left, so they are flipped rather than rolled over when aiming right.
+  function drawAimedSprite(image, x, y, angle, size) {
+    ctx.save();
+    ctx.translate(x, y);
+    if (Math.cos(angle) > 0) {
+      ctx.rotate(angle);
+      ctx.scale(-1, 1);
+    } else {
+      ctx.rotate(angle + Math.PI);
+    }
+    ctx.drawImage(image, -size / 2, -size / 2, size, size);
+    ctx.restore();
+  }
+
   function drawTurret(turret) {
     var originY = floorY - 30;
-    var angle = Math.atan2(urn.y - originY, urn.x - turret.x);
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#2b2f2c';
     ctx.lineWidth = 5;
     strokeLine(turret.x, originY + 6, turret.x - 20, floorY);
     strokeLine(turret.x, originY + 6, turret.x + 20, floorY);
     strokeLine(turret.x, originY + 6, turret.x, floorY);
-    ctx.save();
-    ctx.translate(turret.x, originY);
-    ctx.rotate(angle);
-    ctx.fillStyle = '#1f2321';
-    ctx.fillRect(6, -4, 30, 8);
-    ctx.fillStyle = '#e9982f';
-    ctx.fillRect(30, -5, 6, 10);
-    ctx.fillStyle = '#4a564f';
-    ctx.strokeStyle = '#20241f';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-    ctx.globalCompositeOperation = 'lighter';
-    drawGlow(glows.teal, turret.x, originY, 10);
-    ctx.globalCompositeOperation = 'source-over';
     ctx.lineWidth = 1;
     ctx.lineCap = 'butt';
+    drawAimedSprite(turretGunImg, turret.x, originY, Math.atan2(urn.y - originY, urn.x - turret.x), TURRET_GUN_SIZE);
+  }
+
+  // Where the held gun sits (the corner past the ability bar) and where it points.
+  function getGunPose() {
+    var x = width / 2 + Math.min(width * 0.36, 420);
+    var y = floorY - 34;
+    return { x: x, y: y, angle: Math.atan2(pointer.y - y, pointer.x - x) };
+  }
+
+  function drawHeldGun() {
+    if (tool !== 'smg' && tool !== 'shotgun') return;
+    var pose = getGunPose();
+    var kick = recoil * 8;
+    drawAimedSprite(tool === 'smg' ? smgImg : shotgunImg,
+      pose.x - Math.cos(pose.angle) * kick, pose.y - Math.sin(pose.angle) * kick, pose.angle, GUN_SIZE);
   }
 
   function drawGooFist(now) {
@@ -2085,33 +2055,18 @@
 
   function drawBomb(bomb, now) {
     var fuse = clamp((now - bomb.born) / BOMB_FUSE_MS, 0, 1);
-    // The light blinks faster as the fuse runs down.
+    // The glow throbs faster as the fuse runs down.
     var pulse = 0.5 + 0.5 * Math.sin(fuse * fuse * 60);
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.5 + 0.4 * pulse;
-    drawGlow(glows.red, bomb.x, bomb.y, 34 + 16 * pulse);
-    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 0.45 + 0.4 * pulse;
+    drawGlow(glows.red, bomb.x, bomb.y, 36 + 16 * pulse);
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = '#2a2623';
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
-    for (var spike = 0; spike < 6; spike++) {
-      var angle = spike * Math.PI / 3;
-      strokeLine(bomb.x + Math.cos(angle) * 10, bomb.y + Math.sin(angle) * 10, bomb.x + Math.cos(angle) * 19, bomb.y + Math.sin(angle) * 19);
-    }
-    var shell = ctx.createRadialGradient(bomb.x - 4, bomb.y - 5, 1, bomb.x, bomb.y, 14);
-    shell.addColorStop(0, '#7a6f66');
-    shell.addColorStop(1, '#1f1b19');
-    ctx.fillStyle = shell;
-    ctx.beginPath();
-    ctx.arc(bomb.x, bomb.y, 13, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = pulse > 0.5 ? '#ffd27a' : '#ff5a36';
-    ctx.beginPath();
-    ctx.arc(bomb.x, bomb.y, 4.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.lineWidth = 1;
-    ctx.lineCap = 'butt';
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.save();
+    ctx.translate(bomb.x, bomb.y);
+    ctx.rotate(bomb.stuck ? urn.a : bomb.x * 0.02);
+    ctx.drawImage(bombImg, -BOMB_SIZE / 2, -BOMB_SIZE / 2, BOMB_SIZE, BOMB_SIZE);
+    ctx.restore();
   }
 
   // Each tracer is a streak that shortens toward the impact point as it fades.
@@ -2199,30 +2154,30 @@
     ctx.lineWidth = 1;
   }
 
-  // A chain from the cursor with a claw clamped on him.
+  // The hook arm on a chain from the cursor, its clamp closed on him.
   function drawHook(now) {
     if (!hookLine) return;
-    if (urn.broken || now - hookLine.born > 260) { hookLine = null; return; }
+    if (urn.broken || now - hookLine.born > 380) { hookLine = null; return; }
+    var angle = Math.atan2(urn.y - hookLine.y, urn.x - hookLine.x);
+    var gripX = urn.x - Math.cos(angle) * HOOK_SIZE * 0.4;
+    var gripY = urn.y - Math.sin(angle) * HOOK_SIZE * 0.4;
     ctx.lineCap = 'round';
     ctx.setLineDash([12, 7]);
     ctx.strokeStyle = '#2a2623';
     ctx.lineWidth = 8;
-    strokeLine(hookLine.x, hookLine.y, urn.x, urn.y);
+    strokeLine(hookLine.x, hookLine.y, gripX, gripY);
     ctx.strokeStyle = '#c9c2b4';
     ctx.lineWidth = 4;
-    strokeLine(hookLine.x, hookLine.y, urn.x, urn.y);
+    strokeLine(hookLine.x, hookLine.y, gripX, gripY);
     ctx.setLineDash([]);
-    ctx.save();
-    ctx.translate(urn.x, urn.y);
-    ctx.rotate(Math.atan2(urn.y - hookLine.y, urn.x - hookLine.x));
-    ctx.strokeStyle = '#e9982f';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.arc(0, 0, 22, -1.2, 1.2);
-    ctx.stroke();
-    ctx.restore();
     ctx.lineWidth = 1;
     ctx.lineCap = 'butt';
+    ctx.save();
+    ctx.translate(gripX, gripY);
+    // The clamp is at the top of the sprite, so "up" is turned to face along the chain.
+    ctx.rotate(angle + Math.PI / 2);
+    ctx.drawImage(hookImg, -HOOK_SIZE / 2, -HOOK_SIZE / 2, HOOK_SIZE, HOOK_SIZE);
+    ctx.restore();
   }
 
   function drawEffects(now) {
@@ -2287,8 +2242,35 @@
     ctx.drawImage(tomeImgs[tome.buff.id], tome.x - TOME_SIZE / 2, tome.y - TOME_SIZE / 2 + bob, TOME_SIZE, TOME_SIZE);
   }
 
+  function drawSoul(soul, now) {
+    var fade = clamp((soul.life - (now - soul.born)) / 1000, 0, 1);
+    var points = soul.trail.length;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#04120f';
+    for (var i = 1; i < points; i++) {
+      var thin = 1 - i / points;
+      ctx.globalAlpha = fade * 0.55 * thin;
+      ctx.lineWidth = 9 * thin + 1;
+      strokeLine(soul.trail[i - 1][0], soul.trail[i - 1][1], soul.trail[i][0], soul.trail[i][1]);
+    }
+    ctx.lineCap = 'butt';
+    ctx.globalAlpha = fade;
+    ctx.save();
+    ctx.translate(soul.x, soul.y);
+    // Turning the sprite makes the blaze lick around the core.
+    ctx.rotate(now / 500 + soul.sway);
+    ctx.drawImage(soulSprite, -SOUL_SIZE / 2, -SOUL_SIZE / 2, SOUL_SIZE, SOUL_SIZE);
+    ctx.restore();
+  }
+
   function drawBag() {
     ctx.globalCompositeOperation = 'lighter';
+    // A shaft of light stands over it, as it does over a bag on the ground in a match.
+    var beam = ctx.createLinearGradient(0, bag.y - 150, 0, bag.y);
+    beam.addColorStop(0, 'rgba(110, 230, 184, 0)');
+    beam.addColorStop(1, 'rgba(110, 230, 184, 0.45)');
+    ctx.fillStyle = beam;
+    ctx.fillRect(bag.x - 7, bag.y - 150, 14, 150);
     ctx.globalAlpha = 0.6;
     drawGlow(glows.teal, bag.x, bag.y, BAG_RADIUS * 2.4);
     ctx.globalAlpha = 1;
@@ -2297,8 +2279,14 @@
     ctx.translate(bag.x, bag.y);
     // It rolls with its travel along the floor.
     ctx.rotate(bag.x / BAG_RADIUS);
-    ctx.drawImage(bagSprite, -BAG_RADIUS, -BAG_RADIUS, BAG_RADIUS * 2, BAG_RADIUS * 2);
+    ctx.drawImage(bagImg, -BAG_RADIUS, -BAG_RADIUS, BAG_RADIUS * 2, BAG_RADIUS * 2);
     ctx.restore();
+    // The souls inside light the cage from within.
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.45;
+    drawGlow(glows.teal, bag.x, bag.y, BAG_RADIUS);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = '#7dffd0';
     ctx.font = 'bold 15px Trebuchet MS, sans-serif';
     ctx.textAlign = 'center';
@@ -2429,21 +2417,13 @@
     drawBalls(now);
     drawKnockdown(now);
     drawSiphon(now);
+    drawHeldGun();
 
     if (pointer.down && tool === 'vortex') drawVortex(now);
 
-    souls.forEach(function (soul) {
-      var pulse = 1 + Math.sin(now / 150 + soul.sway) * 0.08;
-      var fade = clamp((soul.life - (now - soul.born)) / 1000, 0, 1);
-      // A short wisp trails behind and below each orb.
-      ctx.globalAlpha = fade * 0.4;
-      for (var tail = 1; tail <= 3; tail++) {
-        drawGlow(glows.teal, soul.x - soul.vx * 0.03 * tail, soul.y - soul.vy * 0.03 * tail + 5 * tail, 11 - 2 * tail);
-      }
-      ctx.globalAlpha = fade;
-      ctx.drawImage(soulSprite, soul.x - 36 * pulse, soul.y - 36 * pulse, 72 * pulse, 72 * pulse);
-    });
+    souls.forEach(function (soul) { drawSoul(soul, now); });
     ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
 
     if (charge) {
       var held = clamp((now - charge.start) / HEAVY_CHARGE_MS, 0, 1);
@@ -2614,6 +2594,12 @@
   });
   urnImg.src = IMG_DIR + 'Soul_Urn_Render.png';
   statueImg.src = IMG_DIR + 'Golden_Statue_Render.png';
+  bagImg.src = IMG_DIR + 'Soul_Bag_Render.png';
+  bombImg.src = IMG_DIR + 'Bebop_Bomb_Render.png';
+  hookImg.src = IMG_DIR + 'Bebop_Hook_Render.png';
+  turretGunImg.src = IMG_DIR + 'McGinnis_Gun_Render.png';
+  smgImg.src = IMG_DIR + 'Haze_Gun_Render.png';
+  shotgunImg.src = IMG_DIR + 'Abrams_Gun_Render.png';
   loadGame();
   recalcItems();
   scoreValue.textContent = formatSouls(score);
@@ -2625,7 +2611,6 @@
   refreshHaunted();
   buildGlows();
   buildSoulSprite();
-  buildBagSprite();
   buildFracture();
   buildCracks();
   buildToolbar();
