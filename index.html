@@ -103,19 +103,19 @@
 
   #toolbar {
     position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%);
-    display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 8px;
-    width: max-content; max-width: min(660px, 96vw);
+    display: flex; justify-content: center; align-items: flex-start; gap: 6px;
+    width: max-content; max-width: 96vw;
   }
   .tool {
-    width: 56px; padding: 0; cursor: pointer; background: none; border: 0; color: var(--paper);
+    width: calc(var(--tool, 54px) + 2px); padding: 0; cursor: pointer; background: none; border: 0; color: var(--paper);
     display: flex; flex-direction: column; align-items: center; gap: 3px;
   }
   .tool .disc {
-    width: 54px; height: 54px; border-radius: 50%;
+    width: var(--tool, 54px); height: var(--tool, 54px); border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     background: #1b1a18; border: 2px solid #3a3835;
   }
-  .tool .icon { width: 34px; height: 34px; object-fit: contain; }
+  .tool .icon { width: calc(var(--tool, 54px) * 0.63); height: calc(var(--tool, 54px) * 0.63); object-fit: contain; }
   .tool:hover .disc { border-color: var(--paper); }
   .tool.selected .disc { border: 3px solid var(--paper); box-shadow: 0 0 12px rgba(239, 230, 210, 0.7); }
   .tool.locked { display: none; }
@@ -185,9 +185,6 @@
     #menu button, #menu label { flex: 0 0 auto; white-space: nowrap; }
     #toolbar { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; width: 96vw; max-width: 96vw; }
     .tool { flex: 0 0 auto; }
-    .tool { width: 50px; }
-    .tool .disc { width: 46px; height: 46px; }
-    .tool .icon { width: 28px; height: 28px; }
     #score { font-size: 24px; }
     #integrity { width: 150px; height: 26px; }
     #leakLabel { line-height: 22px; font-size: 14px; }
@@ -307,6 +304,8 @@
   var SIPHON_SOUL_MS = 120;
   var MAX_BALLS = 2;
   var BALL_SPEED = 260;
+  var BALL_RADIUS = 34;
+  var BALL_ZAP_SHOW_MS = 140;
   var BALL_REACH = 170;
   var BALL_ZAP_MS = 150;
   var BALL_DAMAGE = 2;
@@ -354,6 +353,9 @@
   var BOMB_SIZE = 46;
   var SOUL_SIZE = 68;
   var SOUL_TRAIL_POINTS = 8;
+  var SOUL_ICON_WIDTH = 6;
+  var SOUL_ICON_HEIGHT = 11.5;
+  var STEAM_PUFF_MS = 550;
 
   var GLOW_COLORS = {
     white: '255, 250, 235', yellow: '255, 214, 110', orange: '255, 140, 40', red: '214, 60, 24',
@@ -365,6 +367,7 @@
     ember: { gravity: -120, drag: 0.5, additive: true, glow: 'orange', scale: 0.6, grow: 0, alpha: 1 },
     spark: { gravity: 900, drag: 0.5, additive: true },
     smoke: { gravity: -90, drag: 1.2, additive: false, glow: 'smoke', scale: 2, grow: 2.5, alpha: 0.5 },
+    steam: { gravity: -160, drag: 2.5, additive: false, glow: 'white', scale: 1, grow: 2, alpha: 0.6 },
     goo: { gravity: 1600, drag: 0.2, additive: false, glow: 'goo', scale: 0.8, grow: -0.4, alpha: 0.95 },
     gold: { gravity: 900, drag: 0.3, additive: true, glow: 'gold', scale: 0.5, grow: 0, alpha: 1 },
     pull: { gravity: 0, drag: 0, additive: true, glow: 'blue', scale: 1, grow: -0.6, alpha: 1 },
@@ -491,6 +494,7 @@
   var hookImg = new Image();
   var turretImg = new Image();
   var fistImg = new Image();
+  var soulIconImg = new Image();
   var smgImg = new Image();
   var shotgunImg = new Image();
   var crackCanvas = document.createElement('canvas');
@@ -521,6 +525,7 @@
   var souls = [];
   var urnDirty = true;
   var renderedStage = 0;
+  var renderedFlush = 0;
   var shardShapes = [];
   var crackPaths = [];
   var shards = [];
@@ -543,6 +548,7 @@
   var painBank = 0;
   var anger = 0;
   var blushUntil = 0;
+  var nextSteamAt = 0;
   var lastTouchedAt = 0;
   var itemBonus = {};
   var balls = [];
@@ -572,6 +578,7 @@
   var lastHeldTalkAt = 0;
   var lastSaveAt = 0;
   var saveDirty = false;
+  var toolsDirty = false;
   var lastFrame = 0;
 
   function rand(min, max) { return min + Math.random() * (max - min); }
@@ -842,6 +849,7 @@
     canvas.height = height * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // The floor sits above the bottom panel: the ability bar, and the HUD too while it is docked down there.
+    sizeToolbar();
     var hudDocked = hud.getBoundingClientRect().top > height / 2;
     var dockedHeight = hudDocked ? Math.max(hud.offsetHeight, statusBox.offsetHeight) + 20 : 0;
     var panelHeight = Math.max(toolbar.offsetHeight + 16, dockedHeight);
@@ -930,6 +938,12 @@
     if (anger > 20) return 'annoyed';
     if (performance.now() - lastTouchedAt > BORED_AFTER_MS) return 'bored';
     return 'content';
+  }
+
+  // How far the red flush has climbed him: 0 calm, 1 annoyed, 2 furious. Fear overrides anger.
+  function getFlush() {
+    var mood = getMood();
+    return mood === 'furious' ? 2 : (mood === 'annoyed' ? 1 : 0);
   }
 
   function sayMood(occasion) {
@@ -1059,6 +1073,16 @@
     crackCtx.drawImage(urnImg, 0, 0, crackCanvas.width, crackCanvas.height);
     urnDirty = false;
     renderedStage = getDamageStage();
+    renderedFlush = getFlush();
+    if (renderedFlush) {
+      // Anger climbs him as a red flush, tinted onto his silhouette only.
+      var flush = crackCtx.createLinearGradient(0, crackCanvas.height, 0, 0);
+      flush.addColorStop(0, 'rgba(225, 40, 30, ' + (0.28 * renderedFlush) + ')');
+      flush.addColorStop(renderedFlush === 2 ? 0.95 : 0.6, 'rgba(225, 40, 30, 0)');
+      crackCtx.globalCompositeOperation = 'source-atop';
+      crackCtx.fillStyle = flush;
+      crackCtx.fillRect(0, 0, crackCanvas.width, crackCanvas.height);
+    }
     if (!renderedStage) return;
     crackCtx.globalCompositeOperation = 'source-atop';
     crackCtx.lineCap = 'round';
@@ -1228,11 +1252,16 @@
     score += amount;
     saveDirty = true;
     scoreValue.textContent = formatSouls(score);
-    refreshTools();
-    if (score >= nextMilestone) {
+    // Collecting a crowd of souls in one frame would otherwise rebuild the bar and shop for each one.
+    toolsDirty = true;
+    // Only earning souls counts as a delivery; spending them in the shop does not.
+    if (amount > 0 && score >= nextMilestone) {
       nextMilestone += MILESTONE_SOULS;
-      say('idol_delivered', true);
-      blushUntil = performance.now() + BLUSH_PRAISE_MS;
+      // He only thanks you, and blushes, while he is in a good mood.
+      if (anger <= 20 && getMood() !== 'scared') {
+        say('idol_delivered', true);
+        blushUntil = performance.now() + BLUSH_PRAISE_MS;
+      }
       // Delivering an urn pays out permanent buffs in the game; a soul milestone is the delivery here.
       for (var i = 0; i < URN_DELIVERY_BUFFS; i++) spawnTome(urn.x, urn.y - urn.h / 2, rand(-300, 300), rand(-800, -450));
     }
@@ -1283,6 +1312,7 @@
     leak = Math.min(MAX_LEAK, leak + amount);
     stress += amount;
     anger = Math.min(100, anger + amount * ANGER_PER_DAMAGE);
+    blushUntil = 0;
     var burst = Math.round(amount * BURST_SOULS_PER_DAMAGE * getBuff('ammo'));
     for (var i = 0; i < burst; i++) spawnSoul(worldX, worldY);
     if (amount >= SHAKE_MIN_DAMAGE) shake = MAX_SHAKE;
@@ -1405,10 +1435,17 @@
     leak = Math.max(0, leak - LEAK_DECAY * recovery);
     stress = Math.max(0, stress - STRESS_DECAY * recovery);
     anger = Math.max(0, anger - ANGER_DECAY * dt);
-    // He steams from the lid while he is furious.
-    if (!urn.broken && getMood() === 'furious' && Math.random() < 4 * dt) {
-      var lid = fromUrnLocal(0, -urn.h * 0.48);
-      addParticle('smoke', urn.x + lid.x, urn.y + lid.y, rand(-30, 30), -120, 700, 8);
+    // He blows steam out of both sides of the lid while he is furious, like a kettle.
+    if (!urn.broken && getMood() === 'furious' && performance.now() > nextSteamAt) {
+      nextSteamAt = performance.now() + STEAM_PUFF_MS;
+      [-1, 1].forEach(function (side) {
+        var vent = fromUrnLocal(side * urn.w * 0.3, -urn.h * 0.44);
+        var jet = fromUrnLocal(side * 260, -90);
+        for (var puff = 0; puff < 4; puff++) {
+          var push = rand(0.6, 1.1);
+          addParticle('steam', urn.x + vent.x, urn.y + vent.y, jet.x * push, jet.y * push, rand(350, 600), rand(5, 9));
+        }
+      });
     }
     soulDebt += leak * LEAK_SOULS_PER_SEC * dt;
     while (soulDebt >= 1) { soulDebt--; spawnSoul(); }
@@ -1765,7 +1802,7 @@
       var dy = urn.y - ball.y;
       if (urn.broken || dx * dx + dy * dy > reach * reach || now - ball.lastZap < BALL_ZAP_MS) continue;
       ball.lastZap = now;
-      ball.zapUntil = now + 90;
+      ball.zapUntil = now + BALL_ZAP_SHOW_MS;
       urn.vx += rand(-120, 120);
       urn.vy -= 60;
       damageUrn(BALL_DAMAGE * getBuff('spirit'), urn.x + rand(-20, 20), urn.y + rand(-40, 40));
@@ -1825,6 +1862,16 @@
     charge = null;
     releaseUrn();
     refreshTools();
+  }
+
+  // Every owned ability stays on one row: the discs shrink to fit the room between the two HUD blocks.
+  function sizeToolbar() {
+    var owners = TOOLS.filter(function (def) { return owned[def.id]; }).length;
+    var docked = hud.getBoundingClientRect().top > window.innerHeight / 2;
+    var room = docked
+      ? window.innerWidth - 2 * (Math.max(hud.offsetWidth, statusBox.offsetWidth) + 32)
+      : window.innerWidth * 0.96;
+    toolbar.style.setProperty('--tool', clamp(Math.floor(room / owners) - 6, 30, 54) + 'px');
   }
 
   // Number keys pick from the abilities owned so far, in bar order.
@@ -1988,17 +2035,20 @@
     ctx.fillStyle = 'rgba(190, 245, 150, 0.55)';
     fillEllipse(x - 20, floorY - 2, 30 * swell + 6, 3);
 
-    var stalk = ctx.createLinearGradient(x - 30, 0, x + 30, 0);
-    stalk.addColorStop(0, '#3f9a36');
-    stalk.addColorStop(0.35, '#7fe05a');
-    stalk.addColorStop(0.6, '#58c446');
-    stalk.addColorStop(1, '#2f7a2c');
+    var stalk = ctx.createLinearGradient(x - 34, 0, x + 34, 0);
+    stalk.addColorStop(0, '#2f9a36');
+    stalk.addColorStop(0.35, '#74e463');
+    stalk.addColorStop(0.65, '#4fcf49');
+    stalk.addColorStop(1, '#2a8a31');
     ctx.fillStyle = stalk;
+    // The stalk flares at the floor, narrows, then swells again into the wrist of the fist.
+    var wrist = top + FIST_SIZE * 0.2;
     ctx.beginPath();
-    ctx.moveTo(x - 46, floorY);
-    ctx.bezierCurveTo(x - 22, floorY - 18, x - 26 + sway, top + 60, x - 20 + sway, top + 10);
-    ctx.lineTo(x + 20 + sway, top + 10);
-    ctx.bezierCurveTo(x + 26 + sway, top + 60, x + 22, floorY - 18, x + 46, floorY);
+    ctx.moveTo(x - 52, floorY);
+    ctx.bezierCurveTo(x - 20, floorY - 16, x - 20 + sway, wrist + 70, x - 30 + sway, wrist);
+    // The top is a dome, not a rim, so the fist grows out of it.
+    ctx.quadraticCurveTo(x + sway, wrist - 30, x + 30 + sway, wrist);
+    ctx.bezierCurveTo(x + 20 + sway, wrist + 70, x + 20, floorY - 16, x + 52, floorY);
     ctx.closePath();
     ctx.fill();
 
@@ -2006,17 +2056,23 @@
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(x - 10 + sway * 0.6, top + 24);
-    ctx.quadraticCurveTo(x - 16, (top + floorY) / 2, x - 20, floorY - 22);
+    ctx.moveTo(x - 14 + sway, wrist + 16);
+    ctx.quadraticCurveTo(x - 14, (wrist + floorY) / 2, x - 22, floorY - 22);
     ctx.stroke();
     ctx.lineWidth = 1;
     ctx.lineCap = 'butt';
 
-    // The fist stretches tall on the way up and squashes as it peaks.
+    // Drips sliding down the stalk.
+    ctx.fillStyle = '#74e463';
+    for (var drip = 0; drip < 3; drip++) {
+      var slide = (t * 1.6 + drip / 3) % 1;
+      fillEllipse(x + (drip - 1) * 14 + sway * (1 - slide), wrist + 14 + slide * (floorY - wrist - 30), 3.5, 6);
+    }
+
+    // The fist sits down into the wrist, stretching tall on the way up and squashing as it peaks.
     var stretch = 1 + 0.15 * Math.cos(Math.PI * t);
     ctx.save();
-    ctx.translate(x + sway, top - FIST_SIZE * 0.18);
-    ctx.rotate(sway * 0.02);
+    ctx.translate(x + sway, top + FIST_SIZE * 0.02);
     ctx.scale(1 / stretch, stretch);
     ctx.drawImage(fistImg, -FIST_SIZE / 2, -FIST_SIZE / 2, FIST_SIZE, FIST_SIZE);
     ctx.restore();
@@ -2049,12 +2105,12 @@
 
     // Slow shafts of light fanning out behind everything.
     ctx.globalAlpha = 1;
+    var light = ctx.createRadialGradient(x, y, 50, x, y, 210);
+    light.addColorStop(0, 'rgba(150, 200, 255, 0.16)');
+    light.addColorStop(1, 'rgba(150, 200, 255, 0)');
+    ctx.fillStyle = light;
     for (i = 0; i < 10; i++) {
       var shaft = i * Math.PI / 5 + t * 0.4;
-      var light = ctx.createRadialGradient(x, y, 50, x, y, 210);
-      light.addColorStop(0, 'rgba(150, 200, 255, 0.16)');
-      light.addColorStop(1, 'rgba(150, 200, 255, 0)');
-      ctx.fillStyle = light;
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.arc(x, y, 210, shaft - 0.07, shaft + 0.07);
@@ -2184,25 +2240,81 @@
     ctx.lineCap = 'butt';
   }
 
+  // A cheap repeatable 0..1 value, so a lightning arc holds its shape for a few frames instead of boiling.
+  function jitter(seed) {
+    var value = Math.sin(seed * 127.1) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  function strokeBolt(x1, y1, x2, y2, seed, wobble) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    for (var step = 1; step < 6; step++) {
+      var along = step / 6;
+      ctx.lineTo(x1 + (x2 - x1) * along + (jitter(seed + step) - 0.5) * wobble,
+        y1 + (y2 - y1) * along + (jitter(seed + step + 50) - 0.5) * wobble);
+    }
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  // The lightning ball as it looks in a match: a pale electric sphere with arcs crawling over it,
+  // crackle leaping off the rim, and a forked bolt reaching for the urn whenever it zaps.
   function drawBalls(now) {
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = '#d8f2ff';
-    ctx.lineWidth = 2.5;
-    balls.forEach(function (ball) {
-      drawGlow(glows.blue, ball.x, ball.y, 46);
-      drawGlow(glows.white, ball.x, ball.y, 16 + 3 * Math.sin(now / 60));
-      if (urn.broken || now > ball.zapUntil) return;
-      // A fresh jagged bolt every frame while it zaps.
+    var beat = Math.floor(now / 70);
+    ctx.lineCap = 'round';
+    balls.forEach(function (ball, index) {
+      var seed = beat * 13 + index * 101;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.5;
+      drawGlow(glows.blue, ball.x, ball.y, 78);
+      ctx.globalAlpha = 0.3;
+      drawGlow(glows.blue, ball.x - ball.vx * 0.12, ball.y, 44);
+      drawGlow(glows.blue, ball.x - ball.vx * 0.24, ball.y, 30);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+      var shell = ctx.createRadialGradient(ball.x - 8, ball.y - 9, 3, ball.x, ball.y, BALL_RADIUS);
+      shell.addColorStop(0, 'rgba(245, 252, 255, 0.95)');
+      shell.addColorStop(0.45, 'rgba(150, 215, 255, 0.6)');
+      shell.addColorStop(1, 'rgba(60, 120, 235, 0.3)');
+      ctx.fillStyle = shell;
+      fillEllipse(ball.x, ball.y, BALL_RADIUS, BALL_RADIUS);
+
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(215, 240, 255, 0.9)';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(ball.x, ball.y);
-      for (var step = 1; step < 6; step++) {
-        ctx.lineTo(ball.x + (urn.x - ball.x) * step / 6 + rand(-14, 14), ball.y + (urn.y - ball.y) * step / 6 + rand(-14, 14));
-      }
-      ctx.lineTo(urn.x, urn.y);
+      ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.lineWidth = 1.6;
+      for (var arc = 0; arc < 4; arc++) {
+        var from = jitter(seed + arc * 7) * Math.PI * 2;
+        var to = from + Math.PI * (0.6 + jitter(seed + arc * 7 + 3) * 0.8);
+        strokeBolt(ball.x + Math.cos(from) * BALL_RADIUS, ball.y + Math.sin(from) * BALL_RADIUS,
+          ball.x + Math.cos(to) * BALL_RADIUS, ball.y + Math.sin(to) * BALL_RADIUS, seed + arc * 31, 16);
+      }
+      for (var spur = 0; spur < 5; spur++) {
+        var angle = jitter(seed + spur * 17 + 200) * Math.PI * 2;
+        var reach = BALL_RADIUS + 10 + jitter(seed + spur * 17 + 201) * 22;
+        strokeBolt(ball.x + Math.cos(angle) * BALL_RADIUS, ball.y + Math.sin(angle) * BALL_RADIUS,
+          ball.x + Math.cos(angle) * reach, ball.y + Math.sin(angle) * reach, seed + spur * 53, 9);
+      }
+      if (!urn.broken && now < ball.zapUntil) {
+        ctx.strokeStyle = 'rgba(120, 190, 255, 0.45)';
+        ctx.lineWidth = 7;
+        strokeBolt(ball.x, ball.y, urn.x, urn.y, seed + 400, 30);
+        ctx.strokeStyle = '#f2fbff';
+        ctx.lineWidth = 2.5;
+        strokeBolt(ball.x, ball.y, urn.x, urn.y, seed + 400, 30);
+        var forkX = (ball.x + urn.x) / 2;
+        var forkY = (ball.y + urn.y) / 2;
+        ctx.lineWidth = 1.5;
+        strokeBolt(forkX, forkY, forkX + (jitter(seed + 9) - 0.5) * 90, forkY + (jitter(seed + 10) - 0.5) * 90, seed + 500, 14);
+      }
+      ctx.globalCompositeOperation = 'source-over';
     });
-    ctx.globalCompositeOperation = 'source-over';
     ctx.lineWidth = 1;
+    ctx.lineCap = 'butt';
   }
 
   // A marker drops toward him while the knockdown counts down.
@@ -2319,64 +2431,81 @@
     ctx.lineCap = 'butt';
   }
 
-  // The cartoon "popping vein" mark: four curved ticks around a point.
-  function drawVein(x, y, scale) {
-    ctx.strokeStyle = '#e0352b';
-    ctx.lineWidth = 3 * scale;
+  // The manga anger mark: four curved corners around a gap, throbbing.
+  function drawAngerMark(x, y, scale, now) {
+    var size = scale * (1 + 0.14 * Math.sin(now / 90));
+    var near = 3 * size;
+    var far = 12 * size;
     ctx.lineCap = 'round';
-    for (var quarter = 0; quarter < 4; quarter++) {
-      var angle = quarter * Math.PI / 2 + Math.PI / 4;
-      ctx.beginPath();
-      ctx.arc(x + Math.cos(angle) * 8 * scale, y + Math.sin(angle) * 8 * scale, 5 * scale, angle + Math.PI - 0.9, angle + Math.PI + 0.9);
-      ctx.stroke();
-    }
+    ctx.lineJoin = 'round';
+    [['#ffffff', 6.5], ['#e02a2a', 3.6]].forEach(function (pass) {
+      ctx.strokeStyle = pass[0];
+      ctx.lineWidth = pass[1] * size;
+      [[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(function (corner) {
+        ctx.beginPath();
+        ctx.moveTo(x + corner[0] * near, y + corner[1] * far);
+        ctx.quadraticCurveTo(x + corner[0] * near, y + corner[1] * near, x + corner[0] * far, y + corner[1] * near);
+        ctx.stroke();
+      });
+    });
     ctx.lineWidth = 1;
     ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
   }
 
-  // His mood shown on his body, drawn in his own rotated space: blush, anger marks, a red flush, sweat.
+  function drawSweatDrop(x, y) {
+    ctx.beginPath();
+    ctx.moveTo(x, y - 9);
+    ctx.lineTo(x - 3.2, y - 1);
+    ctx.lineTo(x + 3.2, y - 1);
+    ctx.closePath();
+    ctx.fill();
+    fillEllipse(x, y, 3.4, 4.2);
+  }
+
+  // His mood shown on his body, in his own rotated space. Only one emotion shows at a time:
+  // fear first, then anger, and the blush only when he is neither.
   function drawMood(now) {
     var mood = getMood();
-    var blush = clamp((blushUntil - now) / 600, 0, 1);
-    if (blush > 0) {
-      // Cartoon blush high on his shoulders: a pink oval each side with three slanted hatch marks.
-      ctx.lineCap = 'round';
-      ctx.lineWidth = 2;
-      [-1, 1].forEach(function (side) {
-        var x = side * urn.w * 0.23;
-        var y = -urn.h * 0.3;
-        ctx.globalAlpha = 0.6 * blush;
-        ctx.fillStyle = '#ff6e8c';
-        fillEllipse(x, y, urn.w * 0.13, urn.h * 0.032);
-        ctx.globalAlpha = 0.9 * blush;
-        ctx.strokeStyle = '#e0355e';
-        for (var mark = -1; mark <= 1; mark++) {
-          strokeLine(x + mark * urn.w * 0.06 - 2, y + urn.h * 0.02, x + mark * urn.w * 0.06 + 3, y - urn.h * 0.02);
-        }
-      });
-      ctx.globalAlpha = 1;
-      ctx.lineWidth = 1;
-      ctx.lineCap = 'butt';
-    }
-    if (mood === 'furious') {
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.28;
-      drawGlow(glows.red, 0, -urn.h * 0.05, urn.h * 0.55);
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
-    }
-    if (mood === 'annoyed' || mood === 'furious') drawVein(urn.w * 0.27, -urn.h * 0.37, mood === 'furious' ? 1.4 : 1);
     if (mood === 'scared') {
       ctx.fillStyle = '#bfeaff';
-      for (var drop = 0; drop < 2; drop++) {
-        var slide = (now / 900 + drop * 0.5) % 1;
-        ctx.globalAlpha = 0.85 * (1 - slide);
-        ctx.beginPath();
-        ctx.ellipse((drop ? -1 : 1) * urn.w * 0.3, -urn.h * 0.32 + slide * urn.h * 0.25, 3, 5, 0, 0, Math.PI * 2);
-        ctx.fill();
+      for (var drop = 0; drop < 3; drop++) {
+        var slide = (now / 900 + drop / 3) % 1;
+        ctx.globalAlpha = 0.9 * (1 - slide);
+        drawSweatDrop((drop === 1 ? -1 : 1) * urn.w * (0.3 + drop * 0.03), -urn.h * 0.36 + slide * urn.h * 0.26);
       }
       ctx.globalAlpha = 1;
+      return;
     }
+    if (mood === 'furious') {
+      drawAngerMark(urn.w * 0.36, -urn.h * 0.43, 1.5, now);
+      drawAngerMark(-urn.w * 0.38, -urn.h * 0.3, 0.95, now + 300);
+      return;
+    }
+    if (mood === 'annoyed') {
+      drawAngerMark(urn.w * 0.36, -urn.h * 0.43, 1, now);
+      return;
+    }
+    var blush = clamp((blushUntil - now) / 600, 0, 1);
+    if (blush <= 0) return;
+    // Cartoon blush high on his shoulders: a pink oval each side with three slanted hatch marks.
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 2;
+    [-1, 1].forEach(function (side) {
+      var x = side * urn.w * 0.23;
+      var y = -urn.h * 0.3;
+      ctx.globalAlpha = 0.6 * blush;
+      ctx.fillStyle = '#ff6e8c';
+      fillEllipse(x, y, urn.w * 0.13, urn.h * 0.032);
+      ctx.globalAlpha = 0.9 * blush;
+      ctx.strokeStyle = '#e0355e';
+      for (var mark = -1; mark <= 1; mark++) {
+        strokeLine(x + mark * urn.w * 0.06 - 2, y + urn.h * 0.02, x + mark * urn.w * 0.06 + 3, y - urn.h * 0.02);
+      }
+    });
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
+    ctx.lineCap = 'butt';
   }
 
   function drawStatue(statue) {
@@ -2386,33 +2515,48 @@
 
   function drawTome(tome, now) {
     var bob = Math.sin(now / 300 + tome.sway) * 4;
-    var glow = ctx.createRadialGradient(tome.x, tome.y, 0, tome.x, tome.y, TOME_SIZE);
-    glow.addColorStop(0, 'rgba(232, 196, 106, 0.5)');
-    glow.addColorStop(1, 'rgba(232, 196, 106, 0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(tome.x - TOME_SIZE, tome.y - TOME_SIZE, TOME_SIZE * 2, TOME_SIZE * 2);
+    ctx.globalAlpha = 0.5;
+    drawGlow(glows.gold, tome.x, tome.y, TOME_SIZE);
+    ctx.globalAlpha = 1;
     ctx.drawImage(tomeImgs[tome.buff.id], tome.x - TOME_SIZE / 2, tome.y - TOME_SIZE / 2 + bob, TOME_SIZE, TOME_SIZE);
   }
 
-  function drawSoul(soul, now) {
-    var fade = clamp((soul.life - (now - soul.born)) / 1000, 0, 1);
-    var points = soul.trail.length;
-    ctx.lineCap = 'round';
+  // Every soul's smoky tail in two strokes for the whole crowd: a thick stub behind each core
+  // and a thin full-length wisp. Stroking them one soul at a time was the heaviest part of a frame.
+  function drawSoulTrails() {
     ctx.strokeStyle = '#04120f';
-    for (var i = 1; i < points; i++) {
-      var thin = 1 - i / points;
-      ctx.globalAlpha = fade * 0.55 * thin;
-      ctx.lineWidth = 9 * thin + 1;
-      strokeLine(soul.trail[i - 1][0], soul.trail[i - 1][1], soul.trail[i][0], soul.trail[i][1]);
-    }
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    [[7, 3, 0.45], [3, SOUL_TRAIL_POINTS, 0.3]].forEach(function (pass) {
+      ctx.lineWidth = pass[0];
+      ctx.globalAlpha = pass[2];
+      ctx.beginPath();
+      souls.forEach(function (soul) {
+        var reach = Math.min(pass[1], soul.trail.length);
+        if (reach < 2) return;
+        ctx.moveTo(soul.x, soul.y);
+        for (var i = 0; i < reach; i++) ctx.lineTo(soul.trail[i][0], soul.trail[i][1]);
+      });
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
     ctx.lineCap = 'butt';
-    ctx.globalAlpha = fade;
+    ctx.lineJoin = 'miter';
+  }
+
+  function drawSoul(soul, now) {
+    ctx.globalAlpha = clamp((soul.life - (now - soul.born)) / 1000, 0, 1);
     ctx.save();
     ctx.translate(soul.x, soul.y);
     // Turning the sprite makes the blaze lick around the core.
     ctx.rotate(now / 500 + soul.sway);
     ctx.drawImage(soulSprite, -SOUL_SIZE / 2, -SOUL_SIZE / 2, SOUL_SIZE, SOUL_SIZE);
     ctx.restore();
+    // The souls icon sits upright in the dark core while the blaze turns around it.
+    if (soulIconImg.complete && soulIconImg.naturalWidth) {
+      ctx.drawImage(soulIconImg, soul.x - SOUL_ICON_WIDTH / 2, soul.y - SOUL_ICON_HEIGHT / 2, SOUL_ICON_WIDTH, SOUL_ICON_HEIGHT);
+    }
   }
 
   function drawBag() {
@@ -2529,12 +2673,13 @@
       ctx.fillRect(urn.x - urn.h, urn.y - urn.h, urn.h * 2, urn.h * 2);
     }
 
-    if (urnDirty || getDamageStage() !== renderedStage) renderUrn();
+    if (urnDirty || getDamageStage() !== renderedStage || getFlush() !== renderedFlush) renderUrn();
     if (!urn.broken && crackCanvas.width && !urnDirty) {
       ctx.save();
       // He shivers when he is scared.
       ctx.translate(urn.x + (getMood() === 'scared' ? rand(-1.2, 1.2) : 0), urn.y);
-      ctx.rotate(urn.a);
+      // He trembles with rage when he is furious.
+      ctx.rotate(urn.a + (getMood() === 'furious' ? Math.sin(now / 28) * 0.025 : 0));
       ctx.drawImage(crackCanvas, -urn.w / 2, -urn.h / 2, urn.w, urn.h);
       drawMood(now);
       ctx.restore();
@@ -2575,6 +2720,7 @@
 
     if (pointer.down && tool === 'vortex') drawVortex(now);
 
+    drawSoulTrails();
     souls.forEach(function (soul) { drawSoul(soul, now); });
     ctx.globalAlpha = 1;
     ctx.lineWidth = 1;
@@ -2625,6 +2771,10 @@
     recoil *= 1 - Math.min(1, 10 * dt);
     draw(now);
     placeBubble();
+    if (toolsDirty) {
+      toolsDirty = false;
+      refreshTools();
+    }
     var seconds = Math.floor((now - startedAt) / 1000);
     if (seconds !== clockSeconds) {
       clockSeconds = seconds;
@@ -2758,6 +2908,7 @@
   hookImg.src = IMG_DIR + 'Bebop_Hook_Render.png';
   turretImg.src = IMG_DIR + 'Mini_Turret_Side.png';
   fistImg.src = IMG_DIR + 'Puddle_Punch_Render.png';
+  soulIconImg.src = IMG_DIR + 'Souls_icon.png';
   smgImg.src = IMG_DIR + 'Haze_Gun_Render.png';
   shotgunImg.src = IMG_DIR + 'Abrams_Gun_Render.png';
   loadGame();
