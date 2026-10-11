@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Earnest the Soul Urn</title>
+<style>
+  :root {
+    --bg-deep: #07110f;
+    --bg-glow: #12382f;
+    --soul: #7dffd0;
+    --soul-core: #eafff7;
+    --gold: #e8c46a;
+    --ink: #0b1513;
+    --paper: #f3ead2;
+    --denied: #ff6b5e;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(ellipse at 50% 70%, var(--bg-glow), var(--bg-deep) 70%);
+    color: var(--paper);
+    font-family: Georgia, "Times New Roman", serif;
+    overflow: hidden;
+    user-select: none;
+    touch-action: manipulation;
+  }
+  body.glitch { filter: hue-rotate(140deg) contrast(1.6) saturate(2); }
+
+  #hud {
+    position: fixed; top: 14px; left: 16px; right: 16px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    font-size: 22px; letter-spacing: 1px; z-index: 5; pointer-events: none;
+  }
+  #score { color: var(--soul); text-shadow: 0 0 12px var(--soul); }
+  #denied { color: var(--denied); font-size: 16px; }
+  #voiceToggle {
+    pointer-events: auto; cursor: pointer;
+    background: transparent; color: var(--gold);
+    border: 1px solid var(--gold); border-radius: 4px;
+    font: inherit; font-size: 14px; padding: 6px 10px;
+  }
+  #voiceToggle:hover { background: rgba(232, 196, 106, 0.15); }
+
+  #stage { position: fixed; inset: 0; }
+
+  #urnWrap {
+    position: absolute; left: 50%; bottom: 6vh;
+    width: min(42vh, 70vw); transform: translateX(-50%);
+    animation: bob 2.4s ease-in-out infinite;
+  }
+  #urn {
+    width: 100%; display: block; cursor: pointer;
+    filter: drop-shadow(0 0 30px rgba(125, 255, 208, 0.45));
+    transform-origin: 50% 100%;
+    -webkit-user-drag: none;
+  }
+  #urn.talk { animation: talk 0.18s linear 6; }
+  #urn.burp { animation: burp 0.25s ease-out; }
+  #urn.ouch { animation: ouch 0.4s ease-out; }
+  #urnFallback { display: none; font-size: 30vh; text-align: center; cursor: pointer; }
+
+  #bubble {
+    position: absolute; left: 50%; bottom: 100%;
+    transform: translateX(-50%) scale(0); transform-origin: 50% 100%;
+    width: max-content; max-width: min(420px, 86vw);
+    background: var(--paper); color: var(--ink);
+    padding: 12px 16px; border-radius: 14px;
+    font-size: 19px; line-height: 1.3; text-align: center;
+    transition: transform 0.15s ease-out; pointer-events: none;
+  }
+  #bubble::after {
+    content: ""; position: absolute; left: 50%; top: 100%;
+    margin-left: -10px; border: 10px solid transparent; border-top-color: var(--paper);
+  }
+  #bubble.show { transform: translateX(-50%) scale(1); }
+
+  .soul {
+    position: absolute; left: 0; top: 0; width: 54px; height: 54px;
+    margin: -27px 0 0 -27px; border-radius: 50%; cursor: pointer;
+    background: radial-gradient(circle at 40% 35%, var(--soul-core), var(--soul) 35%, rgba(125, 255, 208, 0) 70%);
+    box-shadow: 0 0 22px 6px rgba(125, 255, 208, 0.55);
+    will-change: transform;
+  }
+  .soul::before, .soul::after {
+    content: ""; position: absolute; top: 20px; width: 6px; height: 9px;
+    background: var(--ink); border-radius: 50%;
+  }
+  .soul::before { left: 17px; }
+  .soul::after { right: 17px; }
+
+  .pop {
+    position: absolute; pointer-events: none; font-size: 24px; font-weight: bold;
+    color: var(--soul); text-shadow: 0 0 10px var(--soul);
+    animation: rise 0.9s ease-out forwards;
+  }
+  .pop.bad { color: var(--denied); text-shadow: 0 0 10px var(--denied); font-size: 16px; }
+
+  #start {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    background: rgba(4, 10, 9, 0.88); cursor: pointer; text-align: center; padding: 16px;
+  }
+  #start h1 { margin: 0; font-size: clamp(30px, 6vw, 60px); color: var(--gold); letter-spacing: 3px; }
+  #start p { margin: 0; font-size: 20px; opacity: 0.85; }
+  #start .go { color: var(--soul); text-shadow: 0 0 12px var(--soul); animation: bob 1.2s ease-in-out infinite; }
+
+  @keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -14px; } }
+  @keyframes talk { 0%, 100% { rotate: 0deg; } 25% { rotate: -3deg; } 75% { rotate: 3deg; } }
+  @keyframes burp { 0% { scale: 1 1; } 40% { scale: 1.12 0.86; } 100% { scale: 1 1; } }
+  @keyframes ouch { 0% { scale: 1 1; rotate: 0deg; } 30% { scale: 0.8 1.2; rotate: -12deg; } 60% { rotate: 10deg; } 100% { scale: 1 1; rotate: 0deg; } }
+  @keyframes rise { to { transform: translateY(-70px); opacity: 0; } }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div>
+    <div id="score">Souls: 0</div>
+    <div id="denied">Denied: 0</div>
+  </div>
+  <button id="voiceToggle" type="button">Voice: on</button>
+</div>
+
+<div id="stage">
+  <div id="urnWrap">
+    <div id="bubble"></div>
+    <img id="urn" alt="The Soul Urn" draggable="false"
+         src="https://deadlock.wiki/images/e/e9/Soul_Urn_Render.png">
+    <div id="urnFallback">&#9905;</div>
+  </div>
+</div>
+
+<div id="start">
+  <h1>EARNEST THE SOUL URN</h1>
+  <p>Civil servant. Jar. Underappreciated.</p>
+  <p class="go">Click to begin your shift</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var WIKI = 'https://deadlock.wiki/images/';
+  var MUSIC_URL = WIKI + '4/49/Music_idol_carry_lp_141bpm.mp3';
+  var VOICE_CLIP_URL = WIKI + 'e/ee/Spirit_jar_idol_waiting_on_bridge_13.mp3';
+
+  var SPEAK_INTERVAL_MS = 6000;
+  var SPAWN_MIN_MS = 350;
+  var SPAWN_MAX_MS = 1100;
+  var SOUL_LIFE_MS = 5500;
+  var GRAVITY = 700;
+  var FLOAT_FALL_SPEED = 45;
+  var BASE_RATE = 0.82;
+  var CHAOS_PER_SOUL = 1 / 1500;
+  var MAX_CHAOS = 4;
+  var GLITCH_RATES = [0.3, 0.45, 0.6, 1.5, 2.2];
+
+  var LINES = [
+    "You'd think people would be more excited about a jar of souls!",
+    "I am a civil servant. I have a pension. Probably.",
+    "Please stop clicking my souls. Those are municipal property.",
+    "My name is Earnest. Nobody ever asks.",
+    "Is the music supposed to sound like that?",
+    "I have been on this bridge for nine business days.",
+    "Deliver me. Or don't. I get paid either way. I do not get paid.",
+    "That one had a family. Kidding. It was a dentist.",
+    "I am filing a form about this. Form 12-B. Jar Misuse.",
+    "Do not tell William I am here.",
+    "My cousin is a shredder at Columbia. We do not talk.",
+    "I am not leaking. This is a controlled release.",
+    "Somebody melee me. I need to feel something.",
+    "Souls, souls, souls. Nobody ever says, how are YOU, Earnest?",
+    "I used to walk myself to the drop-off. Uphill. Both lanes.",
+    "Four golden statue buffs and not one thank you.",
+    "My craftsman is on vacation. That is why I look like this.",
+    "You missed one. I am writing that down.",
+    "This is technically a workplace.",
+    "I contain multitudes. And also Greg.",
+    "If you hear screaming, that is the music.",
+    "I was promised a zipline. I cannot use ziplines.",
+    "Yellow lane or green lane. These are my only two memories.",
+    "Hello. Yes. Jar here.",
+    "Every soul you click is a soul I have to recount.",
+    "I am not a vase. Say vase again.",
+    "The Municipal Coven will hear about this.",
+    "Forty five seconds and I start decaying. Relatable.",
+    "Ow. Ow. Ow. That was preemptive.",
+    "I knew a censer once. Took vows. Never writes."
+  ];
+  var HIT_LINES = [
+    "OW. That is assault of a municipal jar.",
+    "Unhand me! You have no hands on me. Still.",
+    "Fine. Take them. Take all of them.",
+    "I felt that in my lid.",
+    "Do that again and I walk."
+  ];
+
+  var stage = document.getElementById('stage');
+  var urn = document.getElementById('urn');
+  var urnFallback = document.getElementById('urnFallback');
+  var bubble = document.getElementById('bubble');
+  var scoreLabel = document.getElementById('score');
+  var deniedLabel = document.getElementById('denied');
+  var voiceToggle = document.getElementById('voiceToggle');
+  var startOverlay = document.getElementById('start');
+
+  var music = new Audio(MUSIC_URL);
+  music.loop = true;
+  music.volume = 0.7;
+  // The wiki sends no CORS headers, so Web Audio filters would output silence.
+  // Warping playbackRate with pitch preservation off works on any audio element.
+  music.preservesPitch = false;
+
+  var voiceClip = new Audio(VOICE_CLIP_URL);
+  voiceClip.preservesPitch = false;
+
+  var souls = [];
+  var score = 0;
+  var denied = 0;
+  var voiceOn = true;
+  var lastFrame = 0;
+  var nextSpawnAt = 0;
+  var glitchUntil = 0;
+  var glitchRate = 1;
+  var nextGlitchAt = 0;
+  var bubbleTimer = 0;
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+  function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+  function getChaos() { return Math.min(MAX_CHAOS, 1 + score * CHAOS_PER_SOUL); }
+
+  function replayAnimation(el, name) {
+    el.classList.remove('talk', 'burp', 'ouch');
+    void el.offsetWidth;
+    el.classList.add(name);
+  }
+
+  function say(text) {
+    bubble.textContent = text;
+    bubble.classList.add('show');
+    replayAnimation(urn, 'talk');
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(function () { bubble.classList.remove('show'); }, 4200);
+
+    if (!voiceOn || !window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    var utterance = new SpeechSynthesisUtterance(text);
+    utterance.pitch = rand(0, 2);
+    utterance.rate = rand(0.6, 1.5);
+    speechSynthesis.speak(utterance);
+  }
+
+  function getUrnMouth() {
+    var rect = (urn.style.display === 'none' ? urnFallback : urn).getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height * 0.12 };
+  }
+
+  function spawnSoul(speedScale) {
+    var mouth = getUrnMouth();
+    var el = document.createElement('div');
+    el.className = 'soul';
+    stage.appendChild(el);
+    var soul = {
+      el: el,
+      x: mouth.x, y: mouth.y,
+      vx: rand(-320, 320) * speedScale,
+      vy: rand(-900, -500) * speedScale,
+      born: performance.now(),
+      sway: rand(0, 6.28),
+      value: Math.round(rand(10, 70))
+    };
+    el.addEventListener('pointerdown', function (e) {
+      e.stopPropagation();
+      collectSoul(soul);
+    });
+    souls.push(soul);
+    replayAnimation(urn, 'burp');
+  }
+
+  function showPop(x, y, text, bad) {
+    var el = document.createElement('div');
+    el.className = bad ? 'pop bad' : 'pop';
+    el.textContent = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    stage.appendChild(el);
+    setTimeout(function () { el.remove(); }, 900);
+  }
+
+  function removeSoul(soul) {
+    soul.el.remove();
+    souls.splice(souls.indexOf(soul), 1);
+  }
+
+  function collectSoul(soul) {
+    score += soul.value;
+    scoreLabel.textContent = 'Souls: ' + score;
+    showPop(soul.x, soul.y, '+' + soul.value, false);
+    removeSoul(soul);
+  }
+
+  function denySoul(soul) {
+    denied++;
+    deniedLabel.textContent = 'Denied: ' + denied;
+    showPop(soul.x, soul.y, 'DENIED', true);
+    removeSoul(soul);
+  }
+
+  function updateSouls(now, dt) {
+    var width = window.innerWidth;
+    for (var i = souls.length - 1; i >= 0; i--) {
+      var soul = souls[i];
+      var age = now - soul.born;
+      soul.vy = Math.min(soul.vy + GRAVITY * dt, FLOAT_FALL_SPEED);
+      soul.vx *= 1 - 0.6 * dt;
+      soul.x += (soul.vx + Math.sin(now / 400 + soul.sway) * 40) * dt;
+      soul.y += soul.vy * dt;
+      if (soul.x < 27) { soul.x = 27; soul.vx = Math.abs(soul.vx); }
+      if (soul.x > width - 27) { soul.x = width - 27; soul.vx = -Math.abs(soul.vx); }
+      if (soul.y < 27) { soul.y = 27; soul.vy = 0; }
+
+      var fade = Math.min(1, (SOUL_LIFE_MS - age) / 1000);
+      soul.el.style.opacity = fade;
+      soul.el.style.transform = 'translate(' + soul.x + 'px,' + soul.y + 'px)';
+      if (age > SOUL_LIFE_MS) denySoul(soul);
+    }
+  }
+
+  function warpMusic(now) {
+    var chaos = getChaos();
+    if (now > nextGlitchAt) {
+      glitchRate = pick(GLITCH_RATES);
+      glitchUntil = now + rand(120, 500) * chaos;
+      nextGlitchAt = now + rand(1500, 6000) / chaos;
+      // Rewind a beat so the glitch stutters instead of just bending.
+      if (Math.random() < 0.5 && music.currentTime > 1) music.currentTime -= rand(0.2, 0.8);
+    }
+    var glitching = now < glitchUntil;
+    var rate = glitching
+      ? glitchRate
+      : BASE_RATE + Math.sin(now / 900) * 0.1 * chaos + Math.sin(now / 70) * 0.02 * chaos;
+    music.playbackRate = Math.max(0.25, Math.min(3, rate));
+    document.body.classList.toggle('glitch', glitching);
+  }
+
+  function tick(now) {
+    var dt = Math.min(0.05, (now - lastFrame) / 1000);
+    lastFrame = now;
+    if (now > nextSpawnAt) {
+      spawnSoul(1);
+      nextSpawnAt = now + rand(SPAWN_MIN_MS, SPAWN_MAX_MS);
+    }
+    updateSouls(now, dt);
+    warpMusic(now);
+    requestAnimationFrame(tick);
+  }
+
+  function hitUrn() {
+    replayAnimation(urn, 'ouch');
+    for (var i = 0; i < 8; i++) spawnSoul(1.3);
+    voiceClip.currentTime = 0;
+    voiceClip.playbackRate = rand(0.4, 2.2);
+    voiceClip.play().catch(function () {});
+    say(pick(HIT_LINES));
+  }
+
+  function start() {
+    startOverlay.remove();
+    music.play().catch(function () { say('The music is broken. Typical.'); });
+    lastFrame = performance.now();
+    nextGlitchAt = lastFrame + 3000;
+    requestAnimationFrame(tick);
+    say("Hello. Yes. Jar here.");
+    setInterval(function () { say(pick(LINES)); }, SPEAK_INTERVAL_MS);
+  }
+
+  urn.addEventListener('error', function () {
+    urn.style.display = 'none';
+    urnFallback.style.display = 'block';
+  });
+  urn.addEventListener('pointerdown', hitUrn);
+  urnFallback.addEventListener('pointerdown', hitUrn);
+  voiceToggle.addEventListener('click', function () {
+    voiceOn = !voiceOn;
+    voiceToggle.textContent = 'Voice: ' + (voiceOn ? 'on' : 'off');
+    if (!voiceOn && window.speechSynthesis) speechSynthesis.cancel();
+  });
+  startOverlay.addEventListener('click', start);
+})();
+</script>
+</body>
+</html>
